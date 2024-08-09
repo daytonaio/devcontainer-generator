@@ -3,7 +3,7 @@
 {
     "name": "FastHTML",
     // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-    "image": "mcr.microsoft.com/devcontainers/python:3.10-bookworm",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12-bookworm",
 
     // Features to add to the dev container. More info: https://containers.dev/features.
     // "features": {},
@@ -14,7 +14,7 @@
         "vscode": {
             // Set *default* container specific settings.json values on container create.
             "settings": {
-                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.defaultInterpreterPath": "/usr/bin/python",
                 "python.linting.enabled": true,
                 "python.linting.pylintEnabled": true,
                 "python.formatting.autopep8Path": "/usr/local/py-utils/bin/autopep8",

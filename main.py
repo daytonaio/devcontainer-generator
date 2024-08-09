@@ -1,109 +1,181 @@
-# Use the same structure as examples
 from fasthtml.common import *
 import os
-import git
 import json
-import subprocess
-import sqlite3
+import requests
+import instructor
+from openai import AzureOpenAI
 from dotenv import load_dotenv
-from instructor import from_openai
 from pydantic import BaseModel, Field
+import jsonschema
+import sqlite3
+import sqlite_vec
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
 
-# Initialize the `Instructor` client
-client = from_openai(OpenAI(api_key=os.getenv('AZURE_OPENAI_API_KEY')))
+# Set up Azure OpenAI client
+def setup_azure_openai():
+    return AzureOpenAI(
+        api_key=os.getenv("AZURE_OPENAI_KEY"),
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        api_version=os.getenv("AZURE_OPENAI_API_VERSION")
+    )
 
-# FastHTML App setup
-app = FastHTML(hdrs=(picolink,))
-rt = app.route
+# Set up Instructor client
+def setup_instructor(openai_client):
+    return instructor.patch(openai_client)
 
-# SQLite setup
-conn = sqlite3.connect('data/devcontainer.db')
-c = conn.cursor()
-c.execute('''CREATE TABLE IF NOT EXISTS devcontainer_specs
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT, devcontainer_json TEXT, vector_embedding BLOB)''')
-conn.commit()
-
-# Define the pydantic model to structure the devcontainer.json
-class DevContainerSpec(BaseModel):
-    json_schema: str = Field(..., alias='$schema')
-    name: str
-    build: dict
-
-
-# Function to clone a GitHub repository
-def clone_repo(repo_url, clone_dir='cloned_repo'):
-    if os.path.exists(clone_dir):
-        subprocess.run(['rm', '-rf', clone_dir])
-    os.makedirs(clone_dir, exist_ok=True)
-    git.Repo.clone_from(repo_url, clone_dir)
-    return clone_dir
-
-
-# Function to detect the primary language used in the repository
-def detect_primary_language(clone_dir):
-    lang_count = {}
-    for root, _, files in os.walk(clone_dir):
-        for file in files:
-            if file.endswith(('.py', '.js', '.java', '.cpp', '.rb', '.go', '.php', '.cs')):
-                lang = file.split('.')[-1]
-                lang_count[lang] = lang_count.get(lang, 0) + 1
-    return max(lang_count, key=lang_count.get) if lang_count else None
-
-
-# Function to extract repo details
-def extract_repo_details(repo_dir):
-    # Dummy dictionary to simulate extraction
-    return {
-        'name': os.path.basename(repo_dir),
-        'language': detect_primary_language(repo_dir),
-        'dependencies': [],  # Extract actual dependencies here
-        'description': 'Auto-generated devcontainer.json',
-    }
-
-
-# Main page for the FastHTML app
-@rt("/")
-def get():
-    return Title("devcontainer.json Generator"), Main(
-        H1("Create devcontainer.json"),
-        Form(Group(Input(name="repo_url", placeholder="Enter GitHub URL", required=True),
-                   Button("Create devcontainer.json")),
-             hx_post="/generate", hx_target="#result", hx_swap="outerHTML"),
-        Div(id="result"),
-        cls='container')
-
-
-# Route to generate devcontainer.json
-@rt("/generate")
-def post(repo_url: str):
-    with st.spinner("Processing..."):
-        repo_dir = clone_repo(repo_url)
-        repo_details = extract_repo_details(repo_dir)
-
-        prompt = f'Generate devcontainer.json for a project with the following details: {json.dumps(repo_details)}'
-        response = client.completions.create(
-            model="gpt-4",
-            messages=[{"role": "system", "content": "Return only the json content."}, {"role": "user", "content": prompt}],
-            response_model=DevContainerSpec
+# Set up SQLite database with sqlite-vec support
+def setup_database():
+    db = database('data/devcontainers.db')
+    devcontainers = db.t.devcontainers
+    if devcontainers not in db.t:
+        devcontainers.create(
+            url=str,
+            devcontainer_json=str,
+            embedding=str,
+            pk='url'
         )
 
-        devcontainer_spec = response.dict()
+    # Try to load sqlite-vec SQL functions
+    try:
+        db.conn.enable_load_extension(True)
+        db.conn.load_extension("sqlite-vec0")
+    except sqlite3.OperationalError as e:
+        print(f"Warning: Could not load sqlite-vec0 extension: {e}")
+        print("Vector operations may not be available.")
 
-        # Save the result in SQLite database
-        c.execute('INSERT INTO devcontainer_specs (url, devcontainer_json) VALUES (?, ?)', (repo_url, json.dumps(devcontainer_spec)))
-        id_ = c.lastrowid
-        conn.commit()
+    return db, devcontainers
 
+# Define Pydantic model for devcontainer.json
+class DevContainer(BaseModel):
+    name: str = Field(description="Name of the dev container")
+    image: str = Field(description="Docker image to use")
+    features: dict = Field(description="Features to add to the dev container")
+    forwardPorts: list[int] = Field(description="Ports to forward from the container to the local machine")
+    postCreateCommand: str = Field(description="Command to run after creating the container")
+
+# Function to fetch relevant files and context from a GitHub repository
+def fetch_repo_context(repo_url):
+    owner, repo = repo_url.split("/")[-2:]
+    api_url = f'https://api.github.com/repos/{owner}/{repo}/contents'
+    headers = {
+        'Accept': 'application/vnd.github.v3+json',
+        'Authorization': f'token {os.getenv("GITHUB_TOKEN")}'
+    }
+    response = requests.get(api_url, headers=headers)
+    response.raise_for_status()
+
+    context = []
+    for file in response.json():
+        if file['name'] in ["requirements.txt", "Dockerfile", ".gitignore"]:
+            file_content = requests.get(file['download_url']).text
+            context.append(f"{file['name']}:\n{file_content}")
+
+    return "\n\n".join(context)
+
+# Function to generate devcontainer.json using Instructor and Azure OpenAI
+def generate_devcontainer_json(instructor_client, repo_url, repo_context):
+    prompt = f"""
+    Given the following context from a GitHub repository:
+
+    {repo_context}
+
+    Generate a devcontainer.json file for this project. The file should include appropriate settings for the development environment based on the project's requirements and structure.
+    """
+
+    response = instructor_client.chat.completions.create(
+        model="gpt-4",
+        response_model=DevContainer,
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant that generates devcontainer.json files."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    return json.dumps(response.dict(), indent=2)
+
+# Function to validate generated devcontainer.json against schema
+def validate_devcontainer_json(devcontainer_json):
+    schema_path = os.path.join(os.path.dirname(__file__), "schemas", "devContainer.base.schema.json")
+    with open(schema_path, 'r') as schema_file:
+        schema = json.load(schema_file)
+    try:
+        jsonschema.validate(instance=json.loads(devcontainer_json), schema=schema)
+        return True
+    except jsonschema.exceptions.ValidationError:
+        return False
+
+# Set up FastHTML app
+app = FastHTML()
+rt = app.route
+
+# Landing page route
+@rt("/")
+def home():
+    return Title("DevContainer Generator"), Main(
+        H1("DevContainer.json Generator"),
+        Form(
+            Input(type="text", name="repo_url", placeholder="Enter GitHub repository URL"),
+            Button("Generate devcontainer.json"),
+            hx_post="/generate",
+            hx_target="#result"
+        ),
+        Div(id="result"),
+        cls="container"
+    )
+
+# Generation route
+@rt("/generate")
+async def generate(repo_url: str):
+    try:
+        # Fetch repository context
+        repo_context = fetch_repo_context(repo_url)
+
+        # Generate devcontainer.json
+        devcontainer_json = generate_devcontainer_json(instructor_client, repo_url, repo_context)
+
+        # Validate devcontainer.json
+        is_valid = validate_devcontainer_json(devcontainer_json)
+
+        if is_valid:
+            # Save to database
+            if hasattr(openai_client.embeddings, 'create'):
+                embedding = openai_client.embeddings.create(input=devcontainer_json, model="text-embedding-ada-002").data[0].embedding
+                embedding_json = json.dumps(embedding)
+            else:
+                embedding_json = None
+
+            devcontainers.insert(url=repo_url, devcontainer_json=devcontainer_json, embedding=embedding_json)
+
+            return Div(
+                H2("Generated devcontainer.json"),
+                Pre(Code(devcontainer_json)),
+                Button("Copy to Clipboard", onclick="copyToClipboard()"),
+                Script("""
+                    function copyToClipboard() {
+                        const code = document.querySelector('pre code').textContent;
+                        navigator.clipboard.writeText(code);
+                        alert('Copied to clipboard!');
+                    }
+                """)
+            )
+        else:
+            return Div(
+                H2("Error"),
+                P("Generated devcontainer.json is not valid according to the schema.")
+            )
+    except Exception as e:
         return Div(
-            H2("Generated devcontainer.json"),
-            Code(json.dumps(devcontainer_spec, indent=4)),
-            Button("Copy", onclick="copyText()"),
-            Script("function copyText() { navigator.clipboard.writeText(document.getElementsByTagName('code')[0].innerText); alert('Copied to clipboard!'); }"),
-            cls='container')
+            H2("Error"),
+            P(f"An error occurred: {str(e)}")
+        )
 
-
+# Set up and run the app
 if __name__ == "__main__":
+    # Initialize clients and database
+    openai_client = setup_azure_openai()
+    instructor_client = setup_instructor(openai_client)
+    db, devcontainers = setup_database()
+
     serve()
