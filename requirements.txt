@@ -1,0 +1,5 @@
+python-fasthtml
+python-dotenv
+openai
+requests
+gitpython
