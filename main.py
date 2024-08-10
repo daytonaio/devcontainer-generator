@@ -9,21 +9,42 @@ from pydantic import BaseModel, Field
 import jsonschema
 import sqlite3
 import sqlite_vec
+import tiktoken
 
 # Load environment variables
 load_dotenv()
 
+
+# Function to check if necessary environment variables are set
+def check_env_vars():
+    required_vars = ['AZURE_OPENAI_ENDPOINT', 'AZURE_OPENAI_API_KEY', 'AZURE_OPENAI_API_VERSION', 'GITHUB_TOKEN']
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    if missing_vars:
+        st.error(f"Missing environment variables: {', '.join(missing_vars)}. Please configure the .env file properly.")
+        return False
+    return True
+
+
+def count_tokens(text):
+    # Instantiate the tiktoken encoder for the model you are using, e.g., "gpt-3.5-turbo"
+    encoder = tiktoken.encoding_for_model("gpt-3.5-turbo")
+    tokens = encoder.encode(text)
+    return len(tokens)
+
+
 # Set up Azure OpenAI client
 def setup_azure_openai():
     return AzureOpenAI(
-        api_key=os.getenv("AZURE_OPENAI_KEY"),
+        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
         azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         api_version=os.getenv("AZURE_OPENAI_API_VERSION")
     )
 
+
 # Set up Instructor client
 def setup_instructor(openai_client):
     return instructor.patch(openai_client)
+
 
 # Set up SQLite database with sqlite-vec support
 def setup_database():
@@ -47,6 +68,7 @@ def setup_database():
 
     return db, devcontainers
 
+
 # Define Pydantic model for devcontainer.json
 class DevContainer(BaseModel):
     name: str = Field(description="Name of the dev container")
@@ -55,24 +77,90 @@ class DevContainer(BaseModel):
     forwardPorts: list[int] = Field(description="Ports to forward from the container to the local machine")
     postCreateCommand: str = Field(description="Command to run after creating the container")
 
+
 # Function to fetch relevant files and context from a GitHub repository
 def fetch_repo_context(repo_url):
+    # Extract owner and repository from the URL
     owner, repo = repo_url.split("/")[-2:]
-    api_url = f'https://api.github.com/repos/{owner}/{repo}/contents'
+    token = os.getenv("GITHUB_TOKEN")
+
+    # Base URLs for GitHub API requests
+    contents_api_url = f'https://api.github.com/repos/{owner}/{repo}/contents'
+    languages_api_url = f'https://api.github.com/repos/{owner}/{repo}/languages'
+
+    # Headers for the API requests
     headers = {
         'Accept': 'application/vnd.github.v3+json',
-        'Authorization': f'token {os.getenv("GITHUB_TOKEN")}'
+        'Authorization': f'token {token}'
     }
-    response = requests.get(api_url, headers=headers)
-    response.raise_for_status()
 
+    # Initialize context list
     context = []
-    for file in response.json():
-        if file['name'] in ["requirements.txt", "Dockerfile", ".gitignore"]:
-            file_content = requests.get(file['download_url']).text
-            context.append(f"{file['name']}:\n{file_content}")
+    total_tokens = 0
 
+    def traverse_dir(api_url, prefix=""):
+        response = requests.get(api_url, headers=headers)
+        response.raise_for_status()
+
+        structure = []
+        important_files = [
+            "requirements.txt", "Dockerfile", ".gitignore", "package.json", "Gemfile", "README.md",
+            ".env.example", "Pipfile", "setup.py", "Pipfile.lock", "pyproject.toml",
+            "CMakeLists.txt", "Makefile", "go.mod", "go.sum", "pom.xml", "build.gradle",
+            "Cargo.toml", "Cargo.lock", "composer.json", "phpunit.xml", "mix.exs",
+            "pubspec.yaml", "stack.yaml", "DESCRIPTION", "NAMESPACE", "Rakefile"
+        ]
+
+        for item in response.json():
+            if item['type'] == 'dir':
+                structure.append(f"{prefix}{item['name']}/")
+                structure.extend(traverse_dir(item['url'], prefix=prefix + "    "))
+            else:
+                structure.append(f"{prefix}{item['name']}")
+
+            # Fetch contents of specific files
+            if item['name'] in important_files:
+                file_content = requests.get(item['download_url']).text
+                content_text = f"<<SECTION: Content of {item['name']} >>\n{file_content}" + f"\n<<END_SECTION: Content of {item['name']} >>"
+                context.append(content_text)
+
+                # Count tokens in the content
+                file_tokens = count_tokens(content_text)
+                nonlocal total_tokens
+                total_tokens += file_tokens
+
+        return structure
+
+    # Build the repository structure by traversing the root directory
+    repo_structure = traverse_dir(contents_api_url)
+
+    # Add repository structure to context
+    repo_structure_text = "<<SECTION: Repository Structure >>\n" + "\n".join(repo_structure) + "\n<<END_SECTION: Repository Structure >>"
+    context.insert(0, repo_structure_text)
+
+    # Count tokens in the repo structure
+    repo_structure_tokens = count_tokens(repo_structure_text)
+    total_tokens += repo_structure_tokens
+
+    # Make request to fetch repository languages
+    languages_response = requests.get(languages_api_url, headers=headers)
+    languages_response.raise_for_status()
+
+    # Add repository languages to context
+    languages_data = languages_response.json()
+    languages_context = "<<SECTION: Repository Languages >>\n" + "\n".join([f"{lang}: {count} lines" for lang, count in languages_data.items()]) + "\n<<END_SECTION: Repository Languages >>"
+    context.append(languages_context)
+
+    # Count tokens in the languages context
+    languages_tokens = count_tokens(languages_context)
+    total_tokens += languages_tokens
+
+    # Debug print for total tokens (optional)
+    print(f"Total tokens: {total_tokens}")
+
+    # Return the combined context
     return "\n\n".join(context)
+
 
 # Function to generate devcontainer.json using Instructor and Azure OpenAI
 def generate_devcontainer_json(instructor_client, repo_url, repo_context):
@@ -85,7 +173,7 @@ def generate_devcontainer_json(instructor_client, repo_url, repo_context):
     """
 
     response = instructor_client.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4o",
         response_model=DevContainer,
         messages=[
             {"role": "system", "content": "You are a helpful assistant that generates devcontainer.json files."},
@@ -94,6 +182,7 @@ def generate_devcontainer_json(instructor_client, repo_url, repo_context):
     )
 
     return json.dumps(response.dict(), indent=2)
+
 
 # Function to validate generated devcontainer.json against schema
 def validate_devcontainer_json(devcontainer_json):
@@ -106,9 +195,11 @@ def validate_devcontainer_json(devcontainer_json):
     except jsonschema.exceptions.ValidationError:
         return False
 
+
 # Set up FastHTML app
 app = FastHTML()
 rt = app.route
+
 
 # Landing page route
 @rt("/")
@@ -124,6 +215,7 @@ def get():
         Div(id="result"),
         cls="container"
     )
+
 
 # Generation route
 @rt("/generate")
@@ -170,6 +262,7 @@ async def post(repo_url: str):
             H2("Error"),
             P(f"An error occurred: {str(e)}")
         )
+
 
 # Set up and run the app
 if __name__ == "__main__":

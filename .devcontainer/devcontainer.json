@@ -20,6 +20,8 @@
             // Add the IDs of extensions you want installed when the container is created.
             "extensions": [
                 "streetsidesoftware.code-spell-checker",
+                "GitHub.copilot",
+                "GitHub.copilot-chat",
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "ms-python.isort",
@@ -43,6 +45,6 @@
     },
 
     // https://containers.dev/implementors/json_reference/#lifecycle-scripts
-    "postCreateCommand": "pip3 install -r requirements.txt",
+    "postCreateCommand": "pip3 install -r requirements.txt"
     // "postAttachCommand": "python main.py"
 }
