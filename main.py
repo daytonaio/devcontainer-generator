@@ -57,6 +57,7 @@ def setup_database():
         devcontainers.create(
             url=str,
             devcontainer_json=str,
+            repo_context=str,
             embedding=str,
             pk='url'
         )
@@ -267,12 +268,12 @@ async def post(repo_url: str):
             # Save to database
             logging.info("Saving to database...")
             if hasattr(openai_client.embeddings, 'create'):
-                embedding = openai_client.embeddings.create(input=devcontainer_json, model=os.getenv("EMBEDDING")).data[0].embedding
+                embedding = openai_client.embeddings.create(input=repo_context, model=os.getenv("EMBEDDING")).data[0].embedding
                 embedding_json = json.dumps(embedding)
             else:
                 embedding_json = None
 
-            devcontainers.insert(url=repo_url, devcontainer_json=devcontainer_json, embedding=embedding_json)
+            devcontainers.insert(url=repo_url, devcontainer_json=devcontainer_json, repo_context=repo_context, embedding=embedding_json)
 
             return Div(
                 H2("Generated devcontainer.json"),
