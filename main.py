@@ -112,7 +112,7 @@ rt = app.route
 
 # Landing page route
 @rt("/")
-def home():
+def get():
     return Title("DevContainer Generator"), Main(
         H1("DevContainer.json Generator"),
         Form(
@@ -127,7 +127,7 @@ def home():
 
 # Generation route
 @rt("/generate")
-async def generate(repo_url: str):
+async def post(repo_url: str):
     try:
         # Fetch repository context
         repo_context = fetch_repo_context(repo_url)

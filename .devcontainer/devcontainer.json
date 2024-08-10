@@ -14,18 +14,7 @@
         "vscode": {
             // Set *default* container specific settings.json values on container create.
             "settings": {
-                "python.defaultInterpreterPath": "/usr/bin/python",
-                "python.linting.enabled": true,
-                "python.linting.pylintEnabled": true,
-                "python.formatting.autopep8Path": "/usr/local/py-utils/bin/autopep8",
-                "python.formatting.blackPath": "/usr/local/py-utils/bin/black",
-                "python.formatting.yapfPath": "/usr/local/py-utils/bin/yapf",
-                "python.linting.banditPath": "/usr/local/py-utils/bin/bandit",
-                "python.linting.flake8Path": "/usr/local/py-utils/bin/flake8",
-                "python.linting.mypyPath": "/usr/local/py-utils/bin/mypy",
-                "python.linting.pycodestylePath": "/usr/local/py-utils/bin/pycodestyle",
-                "python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle",
-                "python.linting.pylintPath": "/usr/local/py-utils/bin/pylint"
+                "python.defaultInterpreterPath": "/usr/bin/python"
             },
 
             // Add the IDs of extensions you want installed when the container is created.
@@ -34,7 +23,12 @@
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "ms-python.isort",
-                "njpwerner.autodocstring"
+                "njpwerner.autodocstring",
+                "ms-python.pylint",          // Pylint extension
+                "ms-python.flake8",          // Flake8 extension
+                "ms-python.mypy",            // Mypy extension
+                "ms-python.black-formatter", // Black formatter extension
+                "ms-python.autopep8"         // autopep8 extension
             ]
         }
     },
