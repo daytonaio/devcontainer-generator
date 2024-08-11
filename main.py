@@ -89,7 +89,7 @@ class DevContainerModel(BaseModel):
     forwardPorts: Optional[list[int]] = Field(description="Ports to forward from the container to the local machine")
     customizations: Optional[dict] = Field(None, description="Tool-specific configuration")
     settings: Optional[dict] = Field(None, description="VS Code settings to configure the development environment")
-    postCreateCommand: str = Field(description="Command to run after creating the container")
+    postCreateCommand: Optional[str] = Field(description="Command to run after creating the container")
 
 
 # Function to fetch relevant files and context from a GitHub repository
@@ -234,7 +234,18 @@ def validate_devcontainer_json(devcontainer_json):
         return False
 
 # Set up FastHTML app
-app = FastHTML()
+app = FastHTML(
+    hdrs=(
+        picolink,
+        Style("""
+            :root { --pico-font-size: 100%; }
+            body { padding: 20px; }
+            .container { max-width: 800px; margin: 0 auto; }
+            pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; }
+            .button-group { display: flex; gap: 10px; margin-top: 10px; }
+        """)
+    )
+)
 rt = app.route
 
 # Landing page route
@@ -254,16 +265,30 @@ def get():
     )
 
 # Generation route
-@rt("/generate")
-async def post(repo_url: str):
+@rt("/generate", methods=['post', 'get'])
+async def post(repo_url: str, regenerate: bool = False):
     logging.info(f"Generating devcontainer.json for: {repo_url}")
     try:
         # Check if URL already exists in the database
         exists, existing_record = check_url_exists(repo_url)
 
-        if exists:
+        if exists and not regenerate:
             logging.info(f"URL already exists. Returning existing devcontainer.json for: {repo_url}")
             devcontainer_json = existing_record.devcontainer_json
+            return Div(
+                H2("Existing devcontainer.json"),
+                P("A devcontainer.json already exists for this repository."),
+                Pre(Code(devcontainer_json)),
+                Button("Copy to Clipboard", onclick="copyToClipboard()"),
+                Button("Regenerate", onclick=f"window.location.href='/generate?repo_url={repo_url}&regenerate=true'"),
+                Script("""
+                    function copyToClipboard() {
+                        const code = document.querySelector('pre code').textContent;
+                        navigator.clipboard.writeText(code);
+                        alert('Copied to clipboard!');
+                    }
+                """)
+            )
         else:
             # Fetch repository context
             repo_context = fetch_repo_context(repo_url)
@@ -284,8 +309,13 @@ async def post(repo_url: str):
                     embedding_json = None
 
                 session = Session()
-                new_devcontainer = DevContainer(url=repo_url, devcontainer_json=devcontainer_json, repo_context=repo_context, embedding=embedding_json)
-                session.add(new_devcontainer)
+                if exists:
+                    existing_record.devcontainer_json = devcontainer_json
+                    existing_record.repo_context = repo_context
+                    existing_record.embedding = embedding_json
+                else:
+                    new_devcontainer = DevContainer(url=repo_url, devcontainer_json=devcontainer_json, repo_context=repo_context, embedding=embedding_json)
+                    session.add(new_devcontainer)
                 session.commit()
                 session.close()
             else:
@@ -312,7 +342,6 @@ async def post(repo_url: str):
             H2("Error"),
             P(f"An error occurred: {str(e)}")
         )
-
 # Initialize clients
 if check_env_vars():
     openai_client = setup_azure_openai()
