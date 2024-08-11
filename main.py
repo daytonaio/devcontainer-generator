@@ -11,6 +11,7 @@ import sqlite3
 import sqlite_vec
 import tiktoken
 import logging
+from jinja_helper import process_template
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -184,28 +185,14 @@ def fetch_repo_context(repo_url):
 # Function to generate devcontainer.json using Instructor and Azure OpenAI
 def generate_devcontainer_json(instructor_client, repo_url, repo_context):
     logging.info("Generating devcontainer.json...")
-    prompt = f"""
-    Given the following context from a GitHub repository:
 
-    {repo_context}
+    # Create a dictionary with the context data
+    template_data = {
+        "repo_url": repo_url,
+        "repo_context": repo_context
+    }
 
-    Generate a devcontainer.json file for this project. The file should include appropriate settings for the development environment based on the project's requirements and structure. The 'features' field is essential and should include a dictionary of features to enable within the container.
-
-    Here's an example of a devcontainer.json with the 'features' field:
-    ```json
-    {{
-    "name": "Example Dev Container",
-    "image": "node:16",
-    "features": {{
-        "ghcr.io/devcontainers/features/node": {{
-        "version": "latest"
-        }}
-    }},
-    "forwardPorts": [3000],
-    "postCreateCommand": "npm install"
-    }}
-    ```
-    """
+    prompt = process_template("prompts/devcontainer.jinja", template_data)
 
     logging.debug(f"Prompt sent to Instructor: {prompt}")
     response = instructor_client.chat.completions.create(

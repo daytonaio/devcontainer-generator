@@ -1,0 +1,19 @@
+Given the following context from a GitHub repository:
+
+{{ repo_context }}
+
+Generate a devcontainer.json file for this project. The file should include appropriate settings for the development environment based on the project's requirements and structure. The 'features' field is essential and should include a dictionary of features to enable within the container.
+
+Here's an example of a devcontainer.json with the 'features' field:
+```json
+{
+    "name": "Example Dev Container",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12-bookworm",
+    "features": {
+        "ghcr.io/devcontainers/features/node": {
+            "version": "latest"
+        }
+    },
+    "forwardPorts": [3000],
+    "postCreateCommand": "npm install"
+}
