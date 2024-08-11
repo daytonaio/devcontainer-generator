@@ -11,7 +11,7 @@ import sqlite3
 import sqlite_vec
 import tiktoken
 import logging
-from jinja_helper import process_template
+from helpers.jinja_helper import process_template
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -47,6 +47,7 @@ def setup_azure_openai():
         api_version=os.getenv("AZURE_OPENAI_API_VERSION")
     )
 
+
 # Set up Instructor client
 def setup_instructor(openai_client):
     logging.info("Setting up Instructor client...")
@@ -54,7 +55,6 @@ def setup_instructor(openai_client):
 
 
 # Set up SQLite database with sqlite-vec support
-
 def setup_database():
     logging.info("Setting up SQLite database...")
     db = database('data/devcontainers.db')
@@ -87,10 +87,13 @@ class DevContainer(BaseModel):
     image: str = Field(description="Docker image to use")
     #features: dict = Field(description="Features to add to the dev container")
     forwardPorts: list[int] = Field(description="Ports to forward from the container to the local machine")
+    customizations: Optional[dict] = Field(None, description="Tool-specific configuration")
+    settings: Optional[dict] = Field(None, description="VS Code settings to configure the development environment")
     postCreateCommand: str = Field(description="Command to run after creating the container")
 
+
 # Function to fetch relevant files and context from a GitHub repository
-def fetch_repo_context(repo_url):
+def fetch_repo_context(repo_url, max_depth=1):
     logging.info(f"Fetching context from GitHub repository: {repo_url}")
     token = os.getenv("GITHUB_TOKEN")
 
@@ -113,7 +116,10 @@ def fetch_repo_context(repo_url):
     context = []
     total_tokens = 0
 
-    def traverse_dir(api_url, prefix=""):
+    def traverse_dir(api_url, depth=0, prefix=""):
+        if depth > max_depth:
+            return []
+
         logging.info(f"Traversing directory: {api_url}")
         response = requests.get(api_url, headers=headers)
         response.raise_for_status()
@@ -126,17 +132,20 @@ def fetch_repo_context(repo_url):
             "Cargo.toml", "Cargo.lock", "composer.json", "phpunit.xml", "mix.exs",
             "pubspec.yaml", "stack.yaml", "DESCRIPTION", "NAMESPACE", "Rakefile"
         ]
+        large_dirs_to_skip = ["node_modules", "vendor"]
 
         for item in response.json():
             logging.debug(f"Processing item: {item['name']}")
             if item['type'] == 'dir':
+                if item['name'] in large_dirs_to_skip:
+                    continue
                 structure.append(f"{prefix}{item['name']}/")
-                structure.extend(traverse_dir(item['url'], prefix=prefix + "    "))
+                structure.extend(traverse_dir(item['url'], depth + 1, prefix=prefix + "    "))
             else:
                 structure.append(f"{prefix}{item['name']}")
 
             # Fetch contents of specific files
-            if item['name'] in important_files:
+            if item['type'] == 'file' and item['name'] in important_files:
                 logging.debug(f"Fetching content of {item['name']}")
                 file_content = requests.get(item['download_url']).text
                 content_text = f"<<SECTION: Content of {item['name']} >>\n{file_content}" + f"\n<<END_SECTION: Content of {item['name']} >>"
@@ -182,6 +191,7 @@ def fetch_repo_context(repo_url):
     # Return the combined context
     return "\n\n".join(context)
 
+
 # Function to generate devcontainer.json using Instructor and Azure OpenAI
 def generate_devcontainer_json(instructor_client, repo_url, repo_context):
     logging.info("Generating devcontainer.json...")
@@ -205,7 +215,7 @@ def generate_devcontainer_json(instructor_client, repo_url, repo_context):
     )
     logging.debug(f"Raw OpenAI Response: {response.model_dump()}")
     logging.debug(f"Instructor response: {response}")
-    return json.dumps(response.dict(), indent=2)
+    return json.dumps(response.dict(exclude_none=True), indent=2)
 
 
 # Function to validate generated devcontainer.json against schema
