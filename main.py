@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 import jsonschema
 import logging
 from helpers.jinja_helper import process_template
-from sqlalchemy import create_engine, Column, String, Text
+from sqlalchemy import create_engine, Column, String, Text, Integer
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import tiktoken
@@ -32,6 +32,8 @@ class DevContainer(Base):
     url = Column(String, primary_key=True)
     devcontainer_json = Column(Text)
     repo_context = Column(Text)
+    tokens = Column(Integer)
+    model = Column(Text)
     embedding = Column(Text)
 
 Base.metadata.create_all(engine)
@@ -92,6 +94,10 @@ class DevContainerModel(BaseModel):
     postCreateCommand: Optional[str] = Field(description="Command to run after creating the container")
 
 
+# Initialize total tokens variable (global scope)
+total_tokens = 0
+
+
 # Function to fetch relevant files and context from a GitHub repository
 def fetch_repo_context(repo_url, max_depth=1):
     logging.info(f"Fetching context from GitHub repository: {repo_url}")
@@ -114,7 +120,8 @@ def fetch_repo_context(repo_url, max_depth=1):
 
     # Initialize context list
     context = []
-    total_tokens = 0
+    global total_tokens  # Referencing the global total token counter
+    total_tokens = 0  # Reset to 0 before counting
 
     def traverse_dir(api_url, depth=0, prefix=""):
         if depth > max_depth:
@@ -153,7 +160,7 @@ def fetch_repo_context(repo_url, max_depth=1):
 
                 # Count tokens in the content
                 file_tokens = count_tokens(content_text)
-                nonlocal total_tokens
+                global total_tokens  # Use global keyword to modify the global total_tokens variable
                 total_tokens += file_tokens
 
         return structure
@@ -193,10 +200,9 @@ def fetch_repo_context(repo_url, max_depth=1):
 
 
 # Function to generate devcontainer.json using Instructor and Azure OpenAI
-def generate_devcontainer_json(instructor_client, repo_url, repo_context):
+def generate_devcontainer_json(instructor_client, repo_url, repo_context, max_retries=2):
     logging.info("Generating devcontainer.json...")
 
-    # Create a dictionary with the context data
     template_data = {
         "repo_url": repo_url,
         "repo_context": repo_context
@@ -204,18 +210,32 @@ def generate_devcontainer_json(instructor_client, repo_url, repo_context):
 
     prompt = process_template("prompts/devcontainer.jinja", template_data)
 
-    logging.debug(f"Prompt sent to Instructor: {prompt}")
-    response = instructor_client.chat.completions.create(
-        model=os.getenv("MODEL"),
-        response_model=DevContainerModel,
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant that generates devcontainer.json files."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    logging.debug(f"Raw OpenAI Response: {response.model_dump()}")
-    logging.debug(f"Instructor response: {response}")
-    return json.dumps(response.dict(exclude_none=True), indent=2)
+    for attempt in range(max_retries + 1):
+        try:
+            logging.debug(f"Attempt {attempt + 1} to generate devcontainer.json")
+            response = instructor_client.chat.completions.create(
+                model=os.getenv("MODEL"),
+                response_model=DevContainerModel,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that generates devcontainer.json files."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            devcontainer_json = json.dumps(response.dict(exclude_none=True), indent=2)
+
+            # Validate the generated JSON
+            if validate_devcontainer_json(devcontainer_json):
+                return devcontainer_json
+            else:
+                logging.warning(f"Generated JSON failed validation on attempt {attempt + 1}")
+                if attempt == max_retries:
+                    raise ValueError("Failed to generate valid devcontainer.json after maximum retries")
+        except Exception as e:
+            logging.error(f"Error on attempt {attempt + 1}: {str(e)}")
+            if attempt == max_retries:
+                raise
+
+    raise ValueError("Failed to generate valid devcontainer.json after maximum retries")
 
 
 # Function to validate generated devcontainer.json against schema
@@ -253,12 +273,13 @@ rt = app.route
 def get():
     logging.info("Rendering landing page...")
     return Title("DevContainer Generator"), Main(
-        H1("DevContainer.json Generator"),
+        H1("DevContainer.json Generator", cls="text-center"),
         Form(
-            Input(type="text", name="repo_url", placeholder="Enter GitHub repository URL"),
-            Button("Generate devcontainer.json"),
+            Input(type="text", name="repo_url", placeholder="Enter GitHub repository URL", cls="form-input"),
+            Button("Generate devcontainer.json", cls="button"),
             hx_post="/generate",
-            hx_target="#result"
+            hx_target="#result",
+            cls="form"
         ),
         Div(id="result"),
         cls="container"
@@ -273,14 +294,16 @@ async def post(repo_url: str, regenerate: bool = False):
         exists, existing_record = check_url_exists(repo_url)
 
         if exists and not regenerate:
-            logging.info(f"URL already exists. Returning existing devcontainer.json for: {repo_url}")
+            logging.info(f"URL already exists. Returning existing devcontainer_json for: {repo_url}")
             devcontainer_json = existing_record.devcontainer_json
             return Div(
-                H2("Existing devcontainer.json"),
-                P("A devcontainer.json already exists for this repository."),
+                P("A generated devcontainer.json already exists for this repository."),
                 Pre(Code(devcontainer_json)),
-                Button("Copy to Clipboard", onclick="copyToClipboard()"),
-                Button("Regenerate", onclick=f"window.location.href='/generate?repo_url={repo_url}&regenerate=true'"),
+                Div(
+                    Button("Copy to Clipboard", onclick="copyToClipboard()", cls="button"),
+                    Button("Regenerate", hx_post=f"/generate?repo_url={repo_url}&regenerate=true", hx_target="#result", cls="button"),
+                    cls="button-group"
+                ),
                 Script("""
                     function copyToClipboard() {
                         const code = document.querySelector('pre code').textContent;
@@ -293,41 +316,43 @@ async def post(repo_url: str, regenerate: bool = False):
             # Fetch repository context
             repo_context = fetch_repo_context(repo_url)
 
-            # Generate devcontainer.json
-            devcontainer_json = generate_devcontainer_json(instructor_client, repo_url, repo_context)
-
-            # Validate devcontainer.json
-            is_valid = validate_devcontainer_json(devcontainer_json)
-
-            if is_valid:
-                # Save to database
-                logging.info("Saving to database...")
-                if hasattr(openai_client.embeddings, 'create'):
-                    embedding = openai_client.embeddings.create(input=repo_context, model=os.getenv("EMBEDDING")).data[0].embedding
-                    embedding_json = json.dumps(embedding)
-                else:
-                    embedding_json = None
-
-                session = Session()
-                if exists:
-                    existing_record.devcontainer_json = devcontainer_json
-                    existing_record.repo_context = repo_context
-                    existing_record.embedding = embedding_json
-                else:
-                    new_devcontainer = DevContainer(url=repo_url, devcontainer_json=devcontainer_json, repo_context=repo_context, embedding=embedding_json)
-                    session.add(new_devcontainer)
-                session.commit()
-                session.close()
-            else:
+            # Generate devcontainer.json with retries
+            try:
+                devcontainer_json = generate_devcontainer_json(instructor_client, repo_url, repo_context)
+            except ValueError as e:
                 return Div(
                     H2("Error"),
-                    P("Generated devcontainer.json is not valid according to the schema.")
+                    P(f"Failed to generate valid devcontainer.json: {str(e)}")
                 )
 
+            # Save to database
+            logging.info("Saving to database...")
+            if hasattr(openai_client.embeddings, 'create'):
+                embedding = openai_client.embeddings.create(input=repo_context, model=os.getenv("EMBEDDING")).data[0].embedding
+                embedding_json = json.dumps(embedding)
+            else:
+                embedding_json = None
+
+            session = Session()
+            if exists:
+                existing_record.devcontainer_json = devcontainer_json
+                existing_record.repo_context = repo_context
+                existing_record.tokens = total_tokens
+                existing_record.embedding = embedding_json
+            else:
+                new_devcontainer = DevContainer(url=repo_url, devcontainer_json=devcontainer_json, repo_context=repo_context, tokens=total_tokens, model=os.getenv("MODEL"), embedding=embedding_json)
+                session.add(new_devcontainer)
+            session.commit()
+            session.close()
+
         return Div(
-            H2("Generated devcontainer.json"),
+            P("Generated devcontainer.json"),
             Pre(Code(devcontainer_json)),
-            Button("Copy to Clipboard", onclick="copyToClipboard()"),
+            Div(
+                Button("Copy to Clipboard", onclick="copyToClipboard()", cls="button"),
+                Button("Generate New", hx_get="/", hx_target="body", cls="button"),
+                cls="button-group"
+            ),
             Script("""
                 function copyToClipboard() {
                     const code = document.querySelector('pre code').textContent;
@@ -342,6 +367,8 @@ async def post(repo_url: str, regenerate: bool = False):
             H2("Error"),
             P(f"An error occurred: {str(e)}")
         )
+
+
 # Initialize clients
 if check_env_vars():
     openai_client = setup_azure_openai()
