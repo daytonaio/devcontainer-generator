@@ -20,7 +20,10 @@ load_dotenv()
 
 # Function to check if necessary environment variables are set
 def check_env_vars():
-    required_vars = ['AZURE_OPENAI_ENDPOINT', 'AZURE_OPENAI_API_KEY', 'AZURE_OPENAI_API_VERSION', 'MODEL', 'GITHUB_TOKEN']
+    required_vars = ['AZURE_OPENAI_ENDPOINT',
+                     'AZURE_OPENAI_API_KEY',
+                     'AZURE_OPENAI_API_VERSION',
+                     'MODEL', 'GITHUB_TOKEN']
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:
         print(f"Missing environment variables: {', '.join(missing_vars)}. Please configure the .env file properly.")
