@@ -7,17 +7,35 @@ from openai import AzureOpenAI
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ValidationError
 import jsonschema
-import sqlite3
-import sqlite_vec
-import tiktoken
 import logging
 from helpers.jinja_helper import process_template
+from sqlalchemy import create_engine, Column, String, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+import tiktoken
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load environment variables
 load_dotenv()
+
+
+# SQLAlchemy setup
+Base = declarative_base()
+engine = create_engine('sqlite:///data/devcontainers.db')
+Session = sessionmaker(bind=engine)
+
+class DevContainer(Base):
+    __tablename__ = 'devcontainers'
+
+    url = Column(String, primary_key=True)
+    devcontainer_json = Column(Text)
+    repo_context = Column(Text)
+    embedding = Column(Text)
+
+Base.metadata.create_all(engine)
+
 
 # Function to check if necessary environment variables are set
 def check_env_vars():
@@ -32,11 +50,13 @@ def check_env_vars():
         return False
     return True
 
+
 def count_tokens(text):
     # Instantiate the tiktoken encoder for the model you are using, e.g., "gpt-3.5-turbo"
-    encoder = tiktoken.encoding_for_model("gpt-3.5-turbo")
+    encoder = tiktoken.encoding_for_model("gpt-4o")
     tokens = encoder.encode(text)
     return len(tokens)
+
 
 # Set up Azure OpenAI client
 def setup_azure_openai():
@@ -54,38 +74,18 @@ def setup_instructor(openai_client):
     return instructor.patch(openai_client)
 
 
-# Set up SQLite database with sqlite-vec support
-def setup_database():
-    logging.info("Setting up SQLite database...")
-    db = database('data/devcontainers.db')
-    devcontainers = db.t.devcontainers
-    if devcontainers not in db.t:
-        logging.info("Creating devcontainers table...")
-        devcontainers.create(
-            url=str,
-            devcontainer_json=str,
-            repo_context=str,
-            embedding=str,
-            pk='url'
-        )
-
-    # Load sqlite-vec SQL functions
-    try:
-        logging.info("Loading sqlite-vec extension...")
-        sqlite_vec.load(db.conn)
-        logging.info("sqlite-vec extension loaded successfully.")
-    except sqlite3.OperationalError as e:
-        logging.warning(f"Could not load sqlite-vec extension: {e}")
-        logging.warning("Vector operations may not be available.")
-
-    return db, devcontainers
+# Function to check if the URL already exists in the database
+def check_url_exists(url):
+    session = Session()
+    existing = session.query(DevContainer).filter_by(url=url).first()
+    session.close()
+    return existing is not None, existing
 
 
 # Define Pydantic model for devcontainer.json
-class DevContainer(BaseModel):
+class DevContainerModel(BaseModel):
     name: str = Field(description="Name of the dev container")
     image: str = Field(description="Docker image to use")
-    #features: dict = Field(description="Features to add to the dev container")
     forwardPorts: Optional[list[int]] = Field(description="Ports to forward from the container to the local machine")
     customizations: Optional[dict] = Field(None, description="Tool-specific configuration")
     settings: Optional[dict] = Field(None, description="VS Code settings to configure the development environment")
@@ -207,7 +207,7 @@ def generate_devcontainer_json(instructor_client, repo_url, repo_context):
     logging.debug(f"Prompt sent to Instructor: {prompt}")
     response = instructor_client.chat.completions.create(
         model=os.getenv("MODEL"),
-        response_model=DevContainer,
+        response_model=DevContainerModel,
         messages=[
             {"role": "system", "content": "You are a helpful assistant that generates devcontainer.json files."},
             {"role": "user", "content": prompt}
@@ -258,43 +258,54 @@ def get():
 async def post(repo_url: str):
     logging.info(f"Generating devcontainer.json for: {repo_url}")
     try:
-        # Fetch repository context
-        repo_context = fetch_repo_context(repo_url)
+        # Check if URL already exists in the database
+        exists, existing_record = check_url_exists(repo_url)
 
-        # Generate devcontainer.json
-        devcontainer_json = generate_devcontainer_json(instructor_client, repo_url, repo_context)
-
-        # Validate devcontainer.json
-        is_valid = validate_devcontainer_json(devcontainer_json)
-
-        if is_valid:
-            # Save to database
-            logging.info("Saving to database...")
-            if hasattr(openai_client.embeddings, 'create'):
-                embedding = openai_client.embeddings.create(input=repo_context, model=os.getenv("EMBEDDING")).data[0].embedding
-                embedding_json = json.dumps(embedding)
-            else:
-                embedding_json = None
-
-            devcontainers.insert(url=repo_url, devcontainer_json=devcontainer_json, repo_context=repo_context, embedding=embedding_json)
-
-            return Div(
-                H2("Generated devcontainer.json"),
-                Pre(Code(devcontainer_json)),
-                Button("Copy to Clipboard", onclick="copyToClipboard()"),
-                Script("""
-                    function copyToClipboard() {
-                        const code = document.querySelector('pre code').textContent;
-                        navigator.clipboard.writeText(code);
-                        alert('Copied to clipboard!');
-                    }
-                """)
-            )
+        if exists:
+            logging.info(f"URL already exists. Returning existing devcontainer.json for: {repo_url}")
+            devcontainer_json = existing_record.devcontainer_json
         else:
-            return Div(
-                H2("Error"),
-                P("Generated devcontainer.json is not valid according to the schema.")
-            )
+            # Fetch repository context
+            repo_context = fetch_repo_context(repo_url)
+
+            # Generate devcontainer.json
+            devcontainer_json = generate_devcontainer_json(instructor_client, repo_url, repo_context)
+
+            # Validate devcontainer.json
+            is_valid = validate_devcontainer_json(devcontainer_json)
+
+            if is_valid:
+                # Save to database
+                logging.info("Saving to database...")
+                if hasattr(openai_client.embeddings, 'create'):
+                    embedding = openai_client.embeddings.create(input=repo_context, model=os.getenv("EMBEDDING")).data[0].embedding
+                    embedding_json = json.dumps(embedding)
+                else:
+                    embedding_json = None
+
+                session = Session()
+                new_devcontainer = DevContainer(url=repo_url, devcontainer_json=devcontainer_json, repo_context=repo_context, embedding=embedding_json)
+                session.add(new_devcontainer)
+                session.commit()
+                session.close()
+            else:
+                return Div(
+                    H2("Error"),
+                    P("Generated devcontainer.json is not valid according to the schema.")
+                )
+
+        return Div(
+            H2("Generated devcontainer.json"),
+            Pre(Code(devcontainer_json)),
+            Button("Copy to Clipboard", onclick="copyToClipboard()"),
+            Script("""
+                function copyToClipboard() {
+                    const code = document.querySelector('pre code').textContent;
+                    navigator.clipboard.writeText(code);
+                    alert('Copied to clipboard!');
+                }
+            """)
+        )
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}")
         return Div(
@@ -302,11 +313,10 @@ async def post(repo_url: str):
             P(f"An error occurred: {str(e)}")
         )
 
-# Initialize clients and database
+# Initialize clients
 if check_env_vars():
     openai_client = setup_azure_openai()
     instructor_client = setup_instructor(openai_client)
-    db, devcontainers = setup_database()
 
 # Set up and run the app
 if __name__ == "__main__":
