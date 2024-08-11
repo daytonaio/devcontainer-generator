@@ -60,6 +60,16 @@ def count_tokens(text):
     return len(tokens)
 
 
+# Truncate text to a specific number of tokens
+def truncate_to_token_limit(text, model_name, max_tokens):
+    encoding = tiktoken.encoding_for_model(model_name)
+    tokens = encoding.encode(text)
+    if len(tokens) > max_tokens:
+        truncated_tokens = tokens[:max_tokens]
+        return encoding.decode(truncated_tokens)
+    return text
+
+
 # Set up Azure OpenAI client
 def setup_azure_openai():
     logging.info("Setting up Azure OpenAI client...")
@@ -328,7 +338,13 @@ async def post(repo_url: str, regenerate: bool = False):
             # Save to database
             logging.info("Saving to database...")
             if hasattr(openai_client.embeddings, 'create'):
-                embedding = openai_client.embeddings.create(input=repo_context, model=os.getenv("EMBEDDING")).data[0].embedding
+                embedding_model = os.getenv("EMBEDDING", "text-embedding-ada-002")
+                max_tokens = int(os.getenv("EMBEDDING_MODEL_MAX_TOKENS", 8192))
+
+                # Truncate the repo_context for embedding
+                truncated_context = truncate_to_token_limit(repo_context, embedding_model, max_tokens)
+
+                embedding = openai_client.embeddings.create(input=truncated_context, model=embedding_model).data[0].embedding
                 embedding_json = json.dumps(embedding)
             else:
                 embedding_json = None
