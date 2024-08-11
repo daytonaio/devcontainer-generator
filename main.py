@@ -26,7 +26,8 @@ def check_env_vars():
                      'MODEL', 'GITHUB_TOKEN']
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:
-        print(f"Missing environment variables: {', '.join(missing_vars)}. Please configure the .env file properly.")
+        print(f"Missing environment variables: {', '.join(missing_vars)}. "
+              "Please configure the .env file properly.")
         return False
     return True
 
@@ -50,7 +51,9 @@ def setup_instructor(openai_client):
     logging.info("Setting up Instructor client...")
     return instructor.patch(openai_client)
 
+
 # Set up SQLite database with sqlite-vec support
+
 def setup_database():
     logging.info("Setting up SQLite database...")
     db = database('data/devcontainers.db')
@@ -65,17 +68,17 @@ def setup_database():
             pk='url'
         )
 
-    # Try to load sqlite-vec SQL functions
+    # Load sqlite-vec SQL functions
     try:
-        logging.info("Trying to load sqlite-vec0 extension...")
-        db.conn.enable_load_extension(True)
-        db.conn.load_extension("sqlite-vec0")
-        logging.info("sqlite-vec0 extension loaded successfully.")
+        logging.info("Loading sqlite-vec extension...")
+        sqlite_vec.load(db.conn)
+        logging.info("sqlite-vec extension loaded successfully.")
     except sqlite3.OperationalError as e:
-        logging.warning(f"Could not load sqlite-vec0 extension: {e}")
+        logging.warning(f"Could not load sqlite-vec extension: {e}")
         logging.warning("Vector operations may not be available.")
 
     return db, devcontainers
+
 
 # Define Pydantic model for devcontainer.json
 class DevContainer(BaseModel):
