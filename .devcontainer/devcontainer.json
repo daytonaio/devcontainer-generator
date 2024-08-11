@@ -28,7 +28,6 @@
                 "njpwerner.autodocstring",
                 "ms-python.pylint",          // Pylint extension
                 "ms-python.flake8",          // Flake8 extension
-                "ms-python.mypy",            // Mypy extension
                 "ms-python.black-formatter", // Black formatter extension
                 "ms-python.autopep8"         // autopep8 extension
             ]
