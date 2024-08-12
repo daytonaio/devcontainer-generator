@@ -45,6 +45,6 @@
     },
 
     // https://containers.dev/implementors/json_reference/#lifecycle-scripts
-    "postCreateCommand": "pip3 install -r requirements.txt"
+    "postCreateCommand": "pip3 install -r requirements.txt || true"
     // "postAttachCommand": "python main.py"
 }

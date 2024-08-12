@@ -35,26 +35,19 @@ devcontainer-generator
 
 ## Installation
 
-To run this project locally, you'll need to have Python installed. Follow these steps to set up the project:
+To run this project in Daytona, you'll need to have Daytona installed. Follow these steps to set up the project:
 
-1. **Clone the repository**:
+1. **Install Daytona**:
     ```bash
-    git clone https://github.com/your-username/devcontainer-generator.git
-    cd devcontainer-generator
+    (curl -L https://download.daytona.io/daytona/install.sh | sudo bash) && daytona server stop && daytona server -y && daytona
     ```
 
-2. **Create and activate a virtual environment (optional but recommended)**:
+2. **Create new project and run IDE**:
     ```bash
-    python3 -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+    daytona create https://github.com/nkkko/devcontainer-generator --code
     ```
 
-3. **Install the required dependencies**:
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4. **Set up environment variables**:
+3. **Set up environment variables**:
    Create a `.env` file in the project's root directory and add the following environment variables:
     ```dotenv
     AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint
