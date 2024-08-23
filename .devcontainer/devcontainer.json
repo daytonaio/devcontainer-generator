@@ -45,6 +45,6 @@
     },
 
     // https://containers.dev/implementors/json_reference/#lifecycle-scripts
-    "postCreateCommand": "pip3 install -r requirements.txt || true"
+    "postCreateCommand": "pip3 install -r requirements.txt || true && curl -fsSL cli.new | bash -s -- -y"
     // "postAttachCommand": "python main.py"
 }
