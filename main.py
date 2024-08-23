@@ -14,11 +14,15 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import tiktoken
 
+print("Environment variables:")
+for key, value in os.environ.items():
+    print(f"{key}: {value}")
+
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load environment variables
-load_dotenv()
+# load_dotenv()
 
 
 # SQLAlchemy setup
