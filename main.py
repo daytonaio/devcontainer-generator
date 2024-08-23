@@ -49,7 +49,8 @@ def check_env_vars():
                      'AZURE_OPENAI_API_KEY',
                      'AZURE_OPENAI_API_VERSION',
                      'MODEL', 'GITHUB_TOKEN']
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    # missing_vars = [var for var in required_vars if not os.getenv(var)] # local
+    missing_vars = [var for var in required_vars if not os.environ.get(var)] # railway production
     if missing_vars:
         print(f"Missing environment variables: {', '.join(missing_vars)}. "
               "Please configure the .env file properly.")
