@@ -10,8 +10,9 @@ from helpers.openai_helpers import setup_azure_openai, setup_instructor
 from helpers.github_helpers import fetch_repo_context, check_url_exists
 from helpers.devcontainer_helpers import generate_devcontainer_json, validate_devcontainer_json
 from helpers.token_helpers import count_tokens, truncate_to_token_limit
-from models import DevContainer, Base
+from models import SQLAlchemyBase, DevContainer
 from schemas import DevContainerModel
+from content import *
 
 
 # Set up logging
@@ -40,51 +41,66 @@ def check_env_vars():
 
 # SQLAlchemy setup
 engine = create_engine("sqlite:///data/devcontainers.db")
+SQLAlchemyBase.metadata.create_all(engine)
+
 Session = sessionmaker(bind=engine)
-Base.metadata.create_all(engine)
+
+
+hdrs = [
+    picolink,
+    Meta(charset='UTF-8'),
+    Meta(name='viewport', content='width=device-width, initial-scale=1.0, maximum-scale=1.0'),
+    Meta(name='description', content=description),
+    *Favicon('favicon.ico', 'favicon-dark.ico'),
+    *Socials(title='DevContainer.ai',
+        description=description,
+        site_name='devcontainer.ai',
+        twitter_site='@daytonaio',
+        image=f'/assets/og-sq.png',
+        url=''),
+    # surrsrc,
+    Script(src='https://cdn.jsdelivr.net/gh/gnat/surreal@main/surreal.js'),
+    scopesrc,
+    Link(rel="stylesheet", href="/css/main.css"),
+    #Link(href='css/tailwind.css', rel='stylesheet'),
+    ]
+
 
 # Initialize FastHTML app
 app, rt = fast_app(
-    hdrs=(
-        picolink,
-        Link(rel="stylesheet", href="/css/main.css"),
-        Script(src="/js/main.js"),
-    ),
+    hdrs=hdrs,
+    live=True,
     debug=True
 )
 
+
+scripts = (
+    Script(src="/js/main.js"),
+    )
+
+from fastcore.xtras import timed_cache
+
+# Main page composition
+@timed_cache(seconds=60)
+def home():
+    return (Title(f"DevContainer.ai - {description}"),
+        Main(
+            hero_section(),
+            generator_section(),
+            benefits_section(),
+            setup_section(),
+            examples_section(),
+            faq_section(),
+            cta_section(),
+            footer_section()),
+        *scripts)
+
+
 # Define routes
 @rt("/")
-def get():
-    return Titled("AI Dev Container Generator",
-        Main(
-            Form(
-                Group(
-                    Input(type="text", name="repo_url", placeholder="Enter GitHub repository URL", cls="form-input"),
-                    Button(
-                        Div(
-                            Img(src="assets/icons/magic-wand.svg", cls="svg-icon"),
-                            Img(src="assets/icons/loading-spinner.svg", cls="htmx-indicator"),
-                            cls="icon-container"
-                        ),
-                        Span("Generate", cls="button-text"),
-                        cls="button",
-                        id="generate-button",
-                        hx_post="/generate",
-                        hx_target="#result",
-                        hx_indicator="#generate-button"
-                    )
-                ),
-                Div(id="url-error", cls="error-message"),
-                id="generate-form",
-                cls="form",
-                hx_post="/generate",
-                hx_target="#result",
-                hx_indicator=".htmx-indicator"
-            ),
-            Div(id="result"),
-            cls="container"
-        ))
+async def get():
+    return home()
+
 
 @rt("/generate", methods=["post"])
 async def post(session, repo_url: str, regenerate: bool = False):

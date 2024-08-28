@@ -2,9 +2,9 @@ from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime, timezone
 
-Base = declarative_base()
+SQLAlchemyBase = declarative_base()
 
-class DevContainer(Base):
+class DevContainer(SQLAlchemyBase):
     __tablename__ = "devcontainers"
 
     id = Column(Integer, primary_key=True)
