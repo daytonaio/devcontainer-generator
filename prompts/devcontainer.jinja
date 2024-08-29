@@ -2,11 +2,19 @@ Given the following context from a GitHub repository:
 
 {{ repo_context }}
 
+{% if existing_devcontainer %}
+An existing devcontainer.json file was found in the repository:
+
+{{ existing_devcontainer }}
+
+Please use this as a reference and improve upon it, incorporating any new requirements or best practices.
+{% endif %}
+
 Begin by applying Chain of Thought (CoT) reasoning to decompose the context and task into logical, manageable components. Think slowly and pay attention to all important facts in the context such as the ports used by the application and the ports used for testing.
 
 Generate a devcontainer.json file for this project. The file should include appropriate settings for the development environment based on the project's requirements and structure. The 'features' field is essential and should include a dictionary of features to enable within the container.
 
-Always add comments to explain what each line or block of code does. This will help you and others who come after you understand what each line of code is doing, why it's there and how it works.
+Always add comments (like in the provided example) to explain what each line or block of code does. This will help you and others who come after you understand what each line of code is doing, why it's there and how it works.
 
 Here's an example of a devcontainer.json:
 ```json

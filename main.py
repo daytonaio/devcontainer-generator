@@ -110,23 +110,20 @@ async def post(session, repo_url: str, regenerate: bool = False):
         exists, existing_record = check_url_exists(repo_url, Session)
         logging.info(f"URL check result: exists={exists}, existing_record={existing_record}")
 
-        repo_context, existing_devcontainer = fetch_repo_context(repo_url)
+        repo_context, existing_devcontainer, devcontainer_url = fetch_repo_context(repo_url)
         logging.info(f"Fetched repo context. Existing devcontainer: {'Yes' if existing_devcontainer else 'No'}")
+        logging.info(f"Devcontainer URL: {devcontainer_url}")
 
         if exists and not regenerate:
             logging.info(f"URL already exists in database. Returning existing devcontainer_json for: {repo_url}")
             devcontainer_json = existing_record.devcontainer_json
             generated = existing_record.generated
             source = "database"
-        elif existing_devcontainer:
-            logging.info("Existing devcontainer.json found in the repository.")
-            devcontainer_json = existing_devcontainer
-            generated = False
-            source = "repository"
+            url = existing_record.devcontainer_url
         else:
-            devcontainer_json = generate_devcontainer_json(instructor_client, repo_url, repo_context)
+            devcontainer_json, url = generate_devcontainer_json(instructor_client, repo_url, repo_context, devcontainer_url, regenerate=regenerate)
             generated = True
-            source = "generated"
+            source = "generated" if url is None else "repository"
 
         if not exists or regenerate:
             logging.info("Saving to database...")
@@ -146,6 +143,7 @@ async def post(session, repo_url: str, regenerate: bool = False):
                 new_devcontainer = DevContainer(
                     url=repo_url,
                     devcontainer_json=devcontainer_json,
+                    devcontainer_url=devcontainer_url,  # Save the URL here
                     repo_context=repo_context,
                     tokens=count_tokens(repo_context),
                     model=os.getenv("MODEL"),
@@ -155,7 +153,7 @@ async def post(session, repo_url: str, regenerate: bool = False):
                 session.add(new_devcontainer)
                 session.commit()
                 session.close()
-                logging.info("Successfully saved to database")
+                logging.info(f"Successfully saved to database with devcontainer_url: {devcontainer_url}")
             except Exception as e:
                 logging.error(f"Error while saving to database: {str(e)}")
                 raise
@@ -187,6 +185,7 @@ async def post(session, repo_url: str, regenerate: bool = False):
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}", exc_info=True)
         return Div(H2("Error"), P(f"An error occurred: {str(e)}"))
+
 
 # Serve static files
 @rt("/{fname:path}.{ext:static}")

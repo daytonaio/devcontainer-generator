@@ -4,11 +4,61 @@ import json
 import logging
 import os
 import jsonschema
+import tiktoken
 from helpers.jinja_helper import process_template
 from schemas import DevContainerModel
 
+import logging
+import tiktoken
 
-def generate_devcontainer_json(instructor_client, repo_url, repo_context, max_retries=2):
+def truncate_context(context, max_tokens=120000):
+    logging.info(f"Starting truncate_context with max_tokens={max_tokens}")
+    logging.debug(f"Initial context length: {len(context)} characters")
+
+    encoding = tiktoken.encoding_for_model("gpt-4o-mini")
+    tokens = encoding.encode(context)
+
+    logging.info(f"Initial token count: {len(tokens)}")
+
+    if len(tokens) <= max_tokens:
+        logging.info("Context is already within token limit. No truncation needed.")
+        return context
+
+    logging.info(f"Context size is {len(tokens)} tokens. Truncation needed.")
+
+    # Prioritize keeping the repository structure and languages
+    structure_end = context.find("<<END_SECTION: Repository Structure >>")
+    languages_end = context.find("<<END_SECTION: Repository Languages >>")
+
+    logging.debug(f"Structure end position: {structure_end}")
+    logging.debug(f"Languages end position: {languages_end}")
+
+    important_content = context[:languages_end] + "<<END_SECTION: Repository Languages >>\n\n"
+    remaining_content = context[languages_end + len("<<END_SECTION: Repository Languages >>\n\n"):]
+
+    important_tokens = encoding.encode(important_content)
+    logging.debug(f"Important content token count: {len(important_tokens)}")
+
+    if len(important_tokens) > max_tokens:
+        logging.warning("Important content alone exceeds max_tokens. Truncating important content.")
+        important_content = encoding.decode(important_tokens[:max_tokens])
+        return important_content
+
+    remaining_tokens = max_tokens - len(important_tokens)
+    logging.info(f"Tokens available for remaining content: {remaining_tokens}")
+
+    truncated_remaining = encoding.decode(encoding.encode(remaining_content)[:remaining_tokens])
+
+    final_context = important_content + truncated_remaining
+    final_tokens = encoding.encode(final_context)
+
+    logging.info(f"Final token count: {len(final_tokens)}")
+    logging.debug(f"Final context length: {len(final_context)} characters")
+
+    return final_context
+
+def generate_devcontainer_json(instructor_client, repo_url, repo_context, devcontainer_url=None, max_retries=2, regenerate=False):
+    existing_devcontainer = None
     if "<<EXISTING_DEVCONTAINER>>" in repo_context:
         logging.info("Existing devcontainer.json found in the repository.")
         existing_devcontainer = (
@@ -16,11 +66,20 @@ def generate_devcontainer_json(instructor_client, repo_url, repo_context, max_re
             .split("<<END_EXISTING_DEVCONTAINER>>")[0]
             .strip()
         )
-        return existing_devcontainer
+        if not regenerate and devcontainer_url:
+            logging.info(f"Using existing devcontainer.json from URL: {devcontainer_url}")
+            return existing_devcontainer, devcontainer_url
 
     logging.info("Generating devcontainer.json...")
 
-    template_data = {"repo_url": repo_url, "repo_context": repo_context}
+    # Truncate the context to fit within token limits
+    truncated_context = truncate_context(repo_context, max_tokens=126000)
+
+    template_data = {
+        "repo_url": repo_url,
+        "repo_context": truncated_context,
+        "existing_devcontainer": existing_devcontainer
+    }
 
     prompt = process_template("prompts/devcontainer.jinja", template_data)
 
@@ -38,7 +97,11 @@ def generate_devcontainer_json(instructor_client, repo_url, repo_context, max_re
             devcontainer_json = json.dumps(response.dict(exclude_none=True), indent=2)
 
             if validate_devcontainer_json(devcontainer_json):
-                return devcontainer_json
+                logging.info("Successfully generated and validated devcontainer.json")
+                if existing_devcontainer and not regenerate:
+                    return existing_devcontainer, devcontainer_url
+                else:
+                    return devcontainer_json, None  # Return None as URL for generated content
             else:
                 logging.warning(f"Generated JSON failed validation on attempt {attempt + 1}")
                 if attempt == max_retries:

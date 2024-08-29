@@ -31,11 +31,13 @@ def fetch_repo_context(repo_url, max_depth=1):
     }
 
     existing_devcontainer = None
+    devcontainer_url = None
 
     root_devcontainer_url = f"{contents_api_url}/.devcontainer.json"
     response = requests.get(root_devcontainer_url, headers=headers)
     if response.status_code == 200:
         existing_devcontainer = requests.get(response.json()["download_url"]).text
+        devcontainer_url = response.json()["download_url"]
 
     if not existing_devcontainer:
         devcontainer_dir_url = f"{contents_api_url}/.devcontainer"
@@ -44,6 +46,7 @@ def fetch_repo_context(repo_url, max_depth=1):
             for item in response.json():
                 if item["name"] == "devcontainer.json":
                     existing_devcontainer = requests.get(item["download_url"]).text
+                    devcontainer_url = item["download_url"]
                     break
 
     context = []
@@ -138,7 +141,7 @@ def fetch_repo_context(repo_url, max_depth=1):
         context.append(devcontainer_context)
         total_tokens += count_tokens(devcontainer_context)
 
-    return "\n\n".join(context), existing_devcontainer
+    return "\n\n".join(context), existing_devcontainer, devcontainer_url
 
 def check_url_exists(url, Session):
     session = Session()

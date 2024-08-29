@@ -10,6 +10,7 @@ class DevContainer(SQLAlchemyBase):
     id = Column(Integer, primary_key=True)
     url = Column(String, index=True)
     devcontainer_json = Column(Text)
+    devcontainer_url = Column(String)  # New column for devcontainer.json URL
     repo_context = Column(Text)
     tokens = Column(Integer)
     model = Column(Text)

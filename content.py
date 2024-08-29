@@ -150,16 +150,15 @@ def cta_section():
         Div(
             H2("Ready to Simplify Your Development Environment?", cls="text-2xl font-bold text-center mb-4"),
             P("Experience the power of Daytona's flexible and secure development environment platform.", cls="text-lg text-center mb-6"),
-            Button(
+            A(
                 Div(
                     Img(src="assets/icons/github-mark-white.svg", cls="svg-icon"),
                     cls="icon-container"
                 ),
                 Span("Get Daytona Now", cls="button-text"),
-                cls="button",
+                role="button",
                 href="https://github.com/daytonaio/daytona",
-                target="_blank",
-                rel="noopener noreferrer"
+                title="Get Daytona",
             ),
             cls="container mx-auto px-4 py-16 text-center"
         ),
@@ -169,7 +168,10 @@ def cta_section():
 def footer_section():
     return Footer(
         Div(
-            P("© 2024 Daytona Platforms Inc. All rights reserved.", cls="text-center text-gray-600"),
+            P("© 2024 ",
+              A("Daytona Platforms Inc.", href="https://daytona.io", **_blank,
+                cls="border-b-2 border-b-black/30 hover:border-b-black/80"),
+              "All rights reserved.", cls="text-center text-gray-600"),
             cls="container mx-auto px-4 py-8"
         ),
         cls="bg-gray-100",
