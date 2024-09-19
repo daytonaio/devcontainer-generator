@@ -37,6 +37,20 @@ def check_env_vars():
     return True
 
 hdrs = [
+    Script(src="https://www.googletagmanager.com/gtag/js?id=G-Q22LCTCW8Y", aync=True),
+    Script("""
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q22LCTCW8Y');
+    """),
+    Script("""
+        (function(c,l,a,r,i,t,y){
+            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        })(window, document, "clarity", "script", "o5om7ajkg6");
+    """),
     picolink,
     Meta(charset='UTF-8'),
     Meta(name='viewport', content='width=device-width, initial-scale=1.0, maximum-scale=1.0'),
@@ -49,13 +63,6 @@ hdrs = [
         image=f'/assets/og-sq.png',
         url=''),
     Script(src='https://cdn.jsdelivr.net/gh/gnat/surreal@main/surreal.js'),
-    Script(src="https://www.googletagmanager.com/gtag/js?id=G-Q22LCTCW8Y", aync=True),
-    Script("""
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-Q22LCTCW8Y', { 'debug_mode':true });
-    """),
     scopesrc,
     Link(rel="stylesheet", href="/css/main.css"),
 ]
