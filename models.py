@@ -1,19 +1,15 @@
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
-from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime, timezone
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional
 
-SQLAlchemyBase = declarative_base()
-
-class DevContainer(SQLAlchemyBase):
-    __tablename__ = "devcontainers"
-
-    id = Column(Integer, primary_key=True)
-    url = Column(String, index=True)
-    devcontainer_json = Column(Text)
-    devcontainer_url = Column(String)  # New column for devcontainer.json URL
-    repo_context = Column(Text)
-    tokens = Column(Integer)
-    model = Column(Text)
-    embedding = Column(Text)
-    generated = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+class DevContainer(BaseModel):
+    id: Optional[int] = None
+    url: str
+    devcontainer_json: str
+    devcontainer_url: Optional[str]
+    repo_context: str
+    tokens: int
+    model: str
+    embedding: Optional[str]
+    generated: bool
+    created_at: str = datetime.utcnow().isoformat()

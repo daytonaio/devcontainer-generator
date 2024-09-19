@@ -7,6 +7,9 @@ import jsonschema
 import tiktoken
 from helpers.jinja_helper import process_template
 from schemas import DevContainerModel
+from supabase_client import supabase
+from models import DevContainer
+
 
 import logging
 import tiktoken
@@ -126,3 +129,11 @@ def validate_devcontainer_json(devcontainer_json):
     except jsonschema.exceptions.ValidationError as e:
         logging.error(f"Validation failed: {e}")
         return False
+
+def save_devcontainer(new_devcontainer):
+    try:
+        result = supabase.table("devcontainers").insert(new_devcontainer.dict()).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        logging.error(f"Error saving devcontainer to Supabase: {str(e)}")
+        raise
