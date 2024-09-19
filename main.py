@@ -1,27 +1,25 @@
-from fasthtml.common import *
 import logging
 import os
 import json
+from datetime import datetime
+from fasthtml.common import *
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from supabase_client import supabase
 
 from helpers.openai_helpers import setup_azure_openai, setup_instructor
 from helpers.github_helpers import fetch_repo_context, check_url_exists
 from helpers.devcontainer_helpers import generate_devcontainer_json, validate_devcontainer_json
 from helpers.token_helpers import count_tokens, truncate_to_token_limit
-from models import SQLAlchemyBase, DevContainer
+from models import DevContainer
 from schemas import DevContainerModel
 from content import *
-
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Load environment variables if .env exists
+# Load environment variables
 load_dotenv()
 
-# Function to check if necessary environment variables are set
 def check_env_vars():
     required_vars = [
         "AZURE_OPENAI_ENDPOINT",
@@ -29,22 +27,14 @@ def check_env_vars():
         "AZURE_OPENAI_API_VERSION",
         "MODEL",
         "GITHUB_TOKEN",
+        "SUPABASE_URL",
+        "SUPABASE_KEY",
     ]
     missing_vars = [var for var in required_vars if not os.environ.get(var)]
     if missing_vars:
-        print(
-            f"Missing environment variables: {', '.join(missing_vars)}. "
-            "Please configure the env vars file properly."
-        )
+        print(f"Missing environment variables: {', '.join(missing_vars)}. Please configure the env vars file properly.")
         return False
     return True
-
-# SQLAlchemy setup
-engine = create_engine("sqlite:///data/devcontainers.db")
-SQLAlchemyBase.metadata.create_all(engine)
-
-Session = sessionmaker(bind=engine)
-
 
 hdrs = [
     picolink,
@@ -58,13 +48,10 @@ hdrs = [
         twitter_site='@daytonaio',
         image=f'/assets/og-sq.png',
         url=''),
-    # surrsrc,
     Script(src='https://cdn.jsdelivr.net/gh/gnat/surreal@main/surreal.js'),
     scopesrc,
     Link(rel="stylesheet", href="/css/main.css"),
-    #Link(href='css/tailwind.css', rel='stylesheet'),
-    ]
-
+]
 
 # Initialize FastHTML app
 app, rt = fast_app(
@@ -73,10 +60,9 @@ app, rt = fast_app(
     debug=True
 )
 
-
 scripts = (
     Script(src="/js/main.js"),
-    )
+)
 
 from fastcore.xtras import timed_cache
 
@@ -95,19 +81,17 @@ def home():
             footer_section()),
         *scripts)
 
-
 # Define routes
 @rt("/")
 async def get():
     return home()
 
-
 @rt("/generate", methods=["post"])
-async def post(session, repo_url: str, regenerate: bool = False):
+async def post(repo_url: str, regenerate: bool = False):
     logging.info(f"Generating devcontainer.json for: {repo_url}")
 
     try:
-        exists, existing_record = check_url_exists(repo_url, Session)
+        exists, existing_record = check_url_exists(repo_url)
         logging.info(f"URL check result: exists={exists}, existing_record={existing_record}")
 
         repo_context, existing_devcontainer, devcontainer_url = fetch_repo_context(repo_url)
@@ -116,14 +100,15 @@ async def post(session, repo_url: str, regenerate: bool = False):
 
         if exists and not regenerate:
             logging.info(f"URL already exists in database. Returning existing devcontainer_json for: {repo_url}")
-            devcontainer_json = existing_record.devcontainer_json
-            generated = existing_record.generated
+            devcontainer_json = existing_record['devcontainer_json']
+            generated = existing_record['generated']
             source = "database"
-            url = existing_record.devcontainer_url
+            url = existing_record['devcontainer_url']
         else:
             devcontainer_json, url = generate_devcontainer_json(instructor_client, repo_url, repo_context, devcontainer_url, regenerate=regenerate)
             generated = True
             source = "generated" if url is None else "repository"
+
 
         if not exists or regenerate:
             logging.info("Saving to database...")
@@ -139,20 +124,22 @@ async def post(session, repo_url: str, regenerate: bool = False):
                 else:
                     embedding_json = None
 
-                session = Session()
                 new_devcontainer = DevContainer(
                     url=repo_url,
                     devcontainer_json=devcontainer_json,
-                    devcontainer_url=devcontainer_url,  # Save the URL here
+                    devcontainer_url=devcontainer_url,
                     repo_context=repo_context,
                     tokens=count_tokens(repo_context),
                     model=os.getenv("MODEL"),
                     embedding=embedding_json,
                     generated=generated,
+                    created_at=datetime.utcnow().isoformat()  # Ensure this is a string
                 )
-                session.add(new_devcontainer)
-                session.commit()
-                session.close()
+
+                # Convert the Pydantic model to a dictionary and handle datetime serialization
+                devcontainer_dict = json.loads(new_devcontainer.json(exclude_unset=True))
+
+                result = supabase.table("devcontainers").insert(devcontainer_dict).execute()
                 logging.info(f"Successfully saved to database with devcontainer_url: {devcontainer_url}")
             except Exception as e:
                 logging.error(f"Error while saving to database: {str(e)}")
@@ -185,7 +172,6 @@ async def post(session, repo_url: str, regenerate: bool = False):
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}", exc_info=True)
         return Div(H2("Error"), P(f"An error occurred: {str(e)}"))
-
 
 # Serve static files
 @rt("/{fname:path}.{ext:static}")

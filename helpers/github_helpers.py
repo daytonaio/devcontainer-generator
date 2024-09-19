@@ -4,6 +4,7 @@ import logging
 import requests
 from helpers.token_helpers import count_tokens
 from models import DevContainer
+from supabase_client import supabase
 
 def is_valid_github_url(url):
     pattern = r"^https?://github\.com/[\w-]+/[\w.-]+/?$"
@@ -143,13 +144,7 @@ def fetch_repo_context(repo_url, max_depth=1):
 
     return "\n\n".join(context), existing_devcontainer, devcontainer_url
 
-def check_url_exists(url, Session):
-    session = Session()
-    existing = (
-        session.query(DevContainer)
-        .filter_by(url=url)
-        .order_by(DevContainer.created_at.desc())
-        .first()
-    )
-    session.close()
-    return existing is not None, existing
+def check_url_exists(url):
+    existing = supabase.table("devcontainers").select("*").eq("url", url).order("created_at", desc=True).limit(1).execute()
+    existing_record = existing.data[0] if existing.data else None
+    return existing_record is not None, existing_record
