@@ -49,6 +49,13 @@ hdrs = [
         image=f'/assets/og-sq.png',
         url=''),
     Script(src='https://cdn.jsdelivr.net/gh/gnat/surreal@main/surreal.js'),
+    Script(src="https://www.googletagmanager.com/gtag/js?id=G-Q22LCTCW8Y", aync=True),
+    Script("""
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-Q22LCTCW8Y', { 'debug_mode':true });
+    """),
     scopesrc,
     Link(rel="stylesheet", href="/css/main.css"),
 ]
