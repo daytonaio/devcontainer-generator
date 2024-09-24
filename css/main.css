@@ -275,3 +275,25 @@ H2 {
     scrollbar-width: none;
     /* Firefox */
 }
+
+.cta-button {
+    display: inline-block;
+    background-color: #0366d6;  /* GitHub blue color */
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.button-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.github-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 10px;
+}

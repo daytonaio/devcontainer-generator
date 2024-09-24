@@ -87,8 +87,9 @@ def home():
         Main(
             hero_section(),
             generator_section(),
-            benefits_section(),
             setup_section(),
+            manifesto(),
+            benefits_section(),
             examples_section(),
             faq_section(),
             cta_section(),
@@ -186,6 +187,10 @@ async def post(repo_url: str, regenerate: bool = False):
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}", exc_info=True)
         return Div(H2("Error"), P(f"An error occurred: {str(e)}"))
+
+@rt("/manifesto")
+async def get():
+    return manifesto_page()
 
 # Serve static files
 @rt("/{fname:path}.{ext:static}")
