@@ -15,6 +15,21 @@ def hero_section():
     )
 
 
+def caution_section():
+    return Section(
+        Div(
+            H2("Caution Against Running AI Generated Code", cls="text-2xl font-bold text-center mb-8"),
+            # P("Always review the generated code before running it in your development environment.", cls="text-lg text-center mt-4"),
+            Ul(
+                Li("Always review the generated code before running it in your development environment."),
+                Li("The best way to run AI generated code is inside sandboxed dev environments like those managed by Daytona."),
+                cls="list-disc list-inside text-lg text-center mt-4"
+            ),
+            cls="container mx-auto px-4 py-16 bg-yellow-100"
+        ),
+        cls="bg-yellow-100",
+    )
+
 def generator_section():
     return Section(
         Form(
