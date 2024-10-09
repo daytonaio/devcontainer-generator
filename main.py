@@ -105,6 +105,9 @@ async def get():
 async def post(repo_url: str, regenerate: bool = False):
     logging.info(f"Generating devcontainer.json for: {repo_url}")
 
+    # Normalize the repo_url by stripping trailing slashes
+    repo_url = repo_url.rstrip('/')
+
     try:
         exists, existing_record = check_url_exists(repo_url)
         logging.info(f"URL check result: exists={exists}, existing_record={existing_record}")
