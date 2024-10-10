@@ -51,30 +51,6 @@ def generator_section():
         cls="container"
     )
 
-# def generator_section():
-#     return Section(
-#         Form(
-#             Group(
-#                 Select(
-#                     Option(value="", text="Select a repository", selected=True, disabled=True),
-#                     Option(value="repo1", text="Repository 1"),
-#                     Option(value="repo2", text="Repository 2"),
-#                     Option(value="repo3", text="Repository 3"),
-#                     cls="form-select",
-#                     onchange="document.getElementById('repo_url').value = this.value"
-#                 ),
-#                 Input(type="text", id="repo_url", name="repo_url", placeholder="Your GitHub repository URL", cls="form-input"),
-#                 Button(
-#                     Div(
-#                         Img(src="assets/icons/magic-wand.svg", cls="svg-icon"),
-#                         Img(src="assets/icons/loading-spinner.svg", cls="htmx-indicator"),
-#                         cls="icon-container"
-#                     ),
-#                 ),
-#             ),
-#         ),
-#     )
-
 def benefits_section():
     return Section(
         Div(
