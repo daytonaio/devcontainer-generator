@@ -103,7 +103,7 @@ async def get():
 
 @rt("/generate", methods=["post"])
 async def post(repo_url: str, regenerate: bool = False):
-    logging.info(f"Generating devcontainer.json for: {repo_url}")
+    logging.info(f"Generating devcontainer.json and docker-compose.yml for: {repo_url}")
 
     # Normalize the repo_url by stripping trailing slashes
     repo_url = repo_url.rstrip('/')
@@ -112,21 +112,22 @@ async def post(repo_url: str, regenerate: bool = False):
         exists, existing_record = check_url_exists(repo_url)
         logging.info(f"URL check result: exists={exists}, existing_record={existing_record}")
 
-        repo_context, existing_devcontainer, devcontainer_url = fetch_repo_context(repo_url)
+        repo_context, existing_devcontainer, existing_docker_compose, devcontainer_url = fetch_repo_context(repo_url)
         logging.info(f"Fetched repo context. Existing devcontainer: {'Yes' if existing_devcontainer else 'No'}")
+        logging.info(f"Existing docker-compose: {'Yes' if existing_docker_compose else 'No'}")
         logging.info(f"Devcontainer URL: {devcontainer_url}")
 
         if exists and not regenerate:
-            logging.info(f"URL already exists in database. Returning existing devcontainer_json for: {repo_url}")
+            logging.info(f"URL already exists in database. Returning existing files for: {repo_url}")
             devcontainer_json = existing_record['devcontainer_json']
+            docker_compose_yml = existing_record['docker_compose_yml']
             generated = existing_record['generated']
             source = "database"
             url = existing_record['devcontainer_url']
         else:
-            devcontainer_json, url = generate_devcontainer_json(instructor_client, repo_url, repo_context, devcontainer_url, regenerate=regenerate)
+            devcontainer_json, docker_compose_yml, url = generate_devcontainer_json(instructor_client, repo_url, repo_context, devcontainer_url, regenerate=regenerate)
             generated = True
             source = "generated" if url is None else "repository"
-
 
         if not exists or regenerate:
             logging.info("Saving to database...")
@@ -145,16 +146,16 @@ async def post(repo_url: str, regenerate: bool = False):
                 new_devcontainer = DevContainer(
                     url=repo_url,
                     devcontainer_json=devcontainer_json,
+                    docker_compose_yml=docker_compose_yml,
                     devcontainer_url=devcontainer_url,
                     repo_context=repo_context,
                     tokens=count_tokens(repo_context),
                     model=os.getenv("MODEL"),
                     embedding=embedding_json,
                     generated=generated,
-                    created_at=datetime.utcnow().isoformat()  # Ensure this is a string
+                    created_at=datetime.utcnow().isoformat()
                 )
 
-                # Convert the Pydantic model to a dictionary and handle datetime serialization
                 devcontainer_dict = json.loads(new_devcontainer.json(exclude_unset=True))
 
                 result = supabase.table("devcontainers").insert(devcontainer_dict).execute()
@@ -164,7 +165,7 @@ async def post(repo_url: str, regenerate: bool = False):
                 raise
 
         return Div(
-            Article(f"Devcontainer.json {'found in ' + source if source in ['database', 'repository'] else 'generated'}"),
+            Article(f"Files {'found in ' + source if source in ['database', 'repository'] else 'generated'}"),
             Pre(
                 Code(devcontainer_json, id="devcontainer-code", cls="overflow-auto"),
                 Div(
@@ -185,7 +186,20 @@ async def post(repo_url: str, regenerate: bool = False):
                     cls="button-group"
                 ),
                 cls="code-container relative"
-            )
+            ),
+            Pre(
+                Code(docker_compose_yml, id="docker-compose-code", cls="overflow-auto"),
+                Div(
+                    Button(
+                        Img(cls="w-4 h-4", src="assets/icons/copy-icon.svg", alt="Copy"),
+                        cls="icon-button copy-button",
+                        title="Copy to clipboard",
+                    ),
+                    Span(cls="action-text", id="action-text"),
+                    cls="button-group"
+                ),
+                cls="code-container relative"
+            ) if docker_compose_yml else None
         )
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}", exc_info=True)
