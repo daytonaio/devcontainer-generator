@@ -87,6 +87,7 @@ def home():
         Main(
             hero_section(),
             generator_section(),
+            caution_section(),
             setup_section(),
             manifesto(),
             benefits_section(),
