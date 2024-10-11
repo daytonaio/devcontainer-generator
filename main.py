@@ -196,7 +196,7 @@ async def post(repo_url: str, regenerate: bool = False):
                         cls="list-disc list-inside text-lg text-center mt-4"
                     ),
                     cls="container mx-auto px-4 py-16 bg-yellow-100",
-                    style="background-color: #ffff66; padding-bottom: 5px; border-radius: 15px;"
+                    style="background-color: #ffff66; padding-bottom: 5px; border-radius: 10px;"
                 ),
                 cls="code-container relative"
             )
