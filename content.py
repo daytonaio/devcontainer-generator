@@ -14,6 +14,7 @@ def hero_section():
         cls="bg-gray-100",
     )
 
+
 def generator_section():
     return Section(
         Form(
