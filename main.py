@@ -13,7 +13,7 @@ from helpers.token_helpers import count_tokens, truncate_to_token_limit
 from models import DevContainer
 from schemas import DevContainerModel
 from content import *
-
+import subprocess
 # Set up logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -207,4 +207,7 @@ if check_env_vars():
 
 if __name__ == "__main__":
     logging.info("Starting FastHTML app...")
+    subprocess.run(
+        ["npx", "tailwindcss", "-i", "css/input.css", "-o", "css/tailwind.css", "--minify"], shell=true
+    )
     serve()
