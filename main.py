@@ -51,7 +51,6 @@ hdrs = [
             y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
         })(window, document, "clarity", "script", "o5om7ajkg6");
     """),
-    picolink,
     Meta(charset='UTF-8'),
     Meta(name='viewport', content='width=device-width, initial-scale=1.0, maximum-scale=1.0'),
     Meta(name='description', content=description),
