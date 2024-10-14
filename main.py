@@ -168,6 +168,7 @@ async def get(repo_url: str):
     if not repo_url: 
         return home()
     try: 
+        logging.info(f"Generating devcontainer.json for: {repo_url}")
         devcontainer_json, source = await generateDevContainer(repo_url)
         return devcontainer_json
     except Exception as e:
