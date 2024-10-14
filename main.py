@@ -1,3 +1,4 @@
+from http.client import HTTPException
 import logging
 import os
 import json
@@ -96,16 +97,9 @@ def home():
             footer_section()),
         *scripts)
 
-# Define routes
-@rt("/")
-async def get():
-    return home()
 
-@rt("/generate", methods=["post"])
-async def post(repo_url: str, regenerate: bool = False):
-    logging.info(f"Generating devcontainer.json for: {repo_url}")
-
-    # Normalize the repo_url by stripping trailing slashes
+async def generateDevContainer(repo_url:str, regenerate=False):
+    
     repo_url = repo_url.rstrip('/')
 
     try:
@@ -162,7 +156,35 @@ async def post(repo_url: str, regenerate: bool = False):
             except Exception as e:
                 logging.error(f"Error while saving to database: {str(e)}")
                 raise
+        
+        return devcontainer_json, source
+    except Exception as e:
+        logging.error(f"Error generating devcontainer.json: {str(e)}")
+        raise e
 
+
+@rt("/", methods=["get"])
+async def get(repo_url: str):
+    if not repo_url: 
+        return home()
+    try: 
+        devcontainer_json, source = await generateDevContainer(repo_url)
+        return devcontainer_json
+    except Exception as e:
+        logging.error(f"Error generating devcontainer.json: {str(e)}")
+        raise HTTPException(500, f"An error occurred while generating the devcontainer.json: {str(e)}")
+    
+
+@rt("/generate", methods=["post"])
+async def post(repo_url: str, regenerate: bool = False):
+    logging.info(f"Generating devcontainer.json for: {repo_url}")
+
+    # Normalize the repo_url by stripping trailing slashes
+    repo_url = repo_url.rstrip('/')
+
+    try:
+        devcontainer_json, source = await generateDevContainer(repo_url, regenerate=regenerate)
+    
         return Div(
             Article(f"Devcontainer.json {'found in ' + source if source in ['database', 'repository'] else 'generated'}"),
             Pre(
