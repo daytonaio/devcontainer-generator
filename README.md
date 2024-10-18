@@ -6,8 +6,8 @@ Welcome to the **devcontainer-generator** project! This tool helps you automatic
 
 1. [Project Structure](#project-structure)
 2. [Installation](#installation)
-3. [Usage](#usage)
-4. [Configuration](#configuration)
+3. [Configuration](#configuration)
+4. [Usage](#usage)
 5. [Setting Up Daytona Workspace](#setting-up-daytona-workspace)
 6. [Contributing](#contributing)
 7. [License](#license)
@@ -55,22 +55,9 @@ To run this project in Daytona, you'll need to have Daytona installed. Follow th
     AZURE_OPENAI_API_VERSION=your_azure_openai_api_version
     MODEL=your_model_name
     GITHUB_TOKEN=your_github_token
+    SUPABASE_URL=your_supabase_url
+    SUPABASE_KEY=your_supabase_api_key
     ```
-
-## Usage
-
-Run the `main.py` script to start the FastHTML app and generate `devcontainer.json` files. Here's how you can do it:
-
-```bash
-python main.py
-```
-
-**Instructions:**
-
-1. After starting the app, open your web browser and go to `http://localhost:8000`.
-2. Enter the URL of the GitHub repository for which you want to generate a `devcontainer.json` file.
-3. Click the "Generate devcontainer.json" button.
-4. The generated `devcontainer.json` will be displayed and can be copied to your clipboard.
 
 ## Configuration
 
@@ -86,14 +73,50 @@ MODEL=your_model_name
 GITHUB_TOKEN=your_github_token
 ```
 
-### SQLite Database
+### Supabase Database Setup
+The project uses a Supabase database to store the generated devcontainer.json files and their embeddings. Ensure you have set up a Supabase project and added the following environment variables to your .env file.
 
-The project uses an SQLite database to store the generated `devcontainer.json` files and their embeddings. The database is located in the `data` directory.
+To set up the Supabase database and create the necessary tables, follow these steps:
+
+1. Log in to your Supabase project dashboard.
+2. Navigate to the SQL Editor.
+3. Run the following SQL command to create the `devcontainers` table:
+
+```
+CREATE TABLE public.devcontainers (
+    id SERIAL PRIMARY KEY,
+    url TEXT NOT NULL,
+    devcontainer_json TEXT NOT NULL,
+    devcontainer_url TEXT,
+    repo_context TEXT NOT NULL,
+    tokens INT NOT NULL,
+    model TEXT NOT NULL,
+    embedding TEXT,
+    generated BOOLEAN NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+```
+After creating the table, you can use the Supabase client in your Python code to interact with the database.
 
 ### JSON Schema
 
 The JSON schema for the `devcontainer.json` file is located in `schemas/devContainer.base.schema.json`.
 
+## Usage
+
+Run the `main.py` script to start the FastHTML app and generate `devcontainer.json` files. Here's how you can do it:
+
+```bash
+python main.py
+```
+
+**Instructions:**
+
+1. After starting the app, open your web browser and go to `http://localhost:8000`.
+2. Enter the URL of the GitHub repository for which you want to generate a `devcontainer.json` file.
+3. Click the "Generate devcontainer.json" button.
+4. The generated `devcontainer.json` will be displayed and can be copied to your clipboard.
 ## Setting Up Daytona Workspace
 
 **Steps to Set Up Daytona Workspace**
