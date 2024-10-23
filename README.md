@@ -1,3 +1,5 @@
+[![Open in Codeanywhere](https://codeanywhere.com/img/open-in-codeanywhere-btn.svg)](https://app.codeanywhere.com/#https://github.com/daytonaio/devcontainer-generator)
+
 # DevContainer Generator
 
 Welcome to the **devcontainer-generator** project! This tool helps you automatically generate `devcontainer.json` files for your development environments based on the structure and contents of a given GitHub repository.
