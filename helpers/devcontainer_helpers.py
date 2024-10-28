@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import jsonschema
 import tiktoken
 from helpers.jinja_helper import process_template
@@ -13,7 +14,41 @@ from models import DevContainer
 
 import logging
 import tiktoken
+def find_ports_in_files(directory):
+    """Recursively find all port numbers in documentation and configuration files within a directory."""
+    port_pattern = r'\b\d{4,5}\b'  # Regex to match 4- or 5-digit numbers (common port format)
+    detected_ports = set()
 
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith(('.md', '.yml', '.yaml', '.json')):
+                file_path = os.path.join(root, file)
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    # Find all unique ports in the file content
+                    ports = set(re.findall(port_pattern, content))
+                    detected_ports.update(ports)
+
+    # Convert all ports to integers and sort them
+    return sorted(int(port) for port in detected_ports if 1024 <= int(port) <= 65535)  # Valid port range
+
+
+def generate_devcontainer_json_with_ports(directory, existing_config=None):
+    """Generate or update a devcontainer.json with detected forwarded ports."""
+    # Get unique list of ports from files in the directory
+    detected_ports = find_ports_in_files(directory)
+    
+    # Start with an existing config or create a new one
+    devcontainer_config = existing_config or {}
+    
+    # Add detected ports to the forwardedPorts section
+    devcontainer_config['forwardedPorts'] = detected_ports
+    
+    # Write to devcontainer.json
+    with open('devcontainer.json', 'w', encoding='utf-8') as f:
+        json.dump(devcontainer_config, f, indent=2)
+    
+    print(f"Updated devcontainer.json with forwarded ports: {detected_ports}")
 def truncate_context(context, max_tokens=120000):
     logging.info(f"Starting truncate_context with max_tokens={max_tokens}")
     logging.debug(f"Initial context length: {len(context)} characters")

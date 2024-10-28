@@ -2,13 +2,13 @@ import logging
 import os
 import json
 from datetime import datetime
-from fasthtml.common import *
+from pathlib import Path
 from dotenv import load_dotenv
 from supabase_client import supabase
-
+from fasthtml.common import *
 from helpers.openai_helpers import setup_azure_openai, setup_instructor
 from helpers.github_helpers import fetch_repo_context, check_url_exists
-from helpers.devcontainer_helpers import generate_devcontainer_json, validate_devcontainer_json
+from helpers.devcontainer_helpers import generate_devcontainer_json_with_ports, find_ports_in_files  # Updated imports
 from helpers.token_helpers import count_tokens, truncate_to_token_limit
 from models import DevContainer
 from schemas import DevContainerModel
@@ -20,87 +20,7 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %
 # Load environment variables
 load_dotenv()
 
-def check_env_vars():
-    required_vars = [
-        "AZURE_OPENAI_ENDPOINT",
-        "AZURE_OPENAI_API_KEY",
-        "AZURE_OPENAI_API_VERSION",
-        "MODEL",
-        "GITHUB_TOKEN",
-        "SUPABASE_URL",
-        "SUPABASE_KEY",
-    ]
-    missing_vars = [var for var in required_vars if not os.environ.get(var)]
-    if missing_vars:
-        print(f"Missing environment variables: {', '.join(missing_vars)}. Please configure the env vars file properly.")
-        return False
-    return True
-
-hdrs = [
-    Script(src="https://www.googletagmanager.com/gtag/js?id=G-Q22LCTCW8Y", aync=True),
-    Script("""
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-Q22LCTCW8Y');
-    """),
-    Script("""
-        (function(c,l,a,r,i,t,y){
-            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-        })(window, document, "clarity", "script", "o5om7ajkg6");
-    """),
-    picolink,
-    Meta(charset='UTF-8'),
-    Meta(name='viewport', content='width=device-width, initial-scale=1.0, maximum-scale=1.0'),
-    Meta(name='description', content=description),
-    *Favicon('favicon.ico', 'favicon-dark.ico'),
-    *Socials(title='DevContainer.ai',
-        description=description,
-        site_name='devcontainer.ai',
-        twitter_site='@daytonaio',
-        image=f'/assets/og-sq.png',
-        url=''),
-    Script(src='https://cdn.jsdelivr.net/gh/gnat/surreal@main/surreal.js'),
-    scopesrc,
-    Link(rel="stylesheet", href="/css/main.css"),
-]
-
-# Initialize FastHTML app
-app, rt = fast_app(
-    hdrs=hdrs,
-    live=True,
-    debug=True
-)
-
-scripts = (
-    Script(src="/js/main.js"),
-)
-
-from fastcore.xtras import timed_cache
-
-# Main page composition
-@timed_cache(seconds=60)
-def home():
-    return (Title(f"DevContainer.ai - {description}"),
-        Main(
-            hero_section(),
-            generator_section(),
-            setup_section(),
-            manifesto(),
-            benefits_section(),
-            examples_section(),
-            faq_section(),
-            cta_section(),
-            footer_section()),
-        *scripts)
-
-# Define routes
-@rt("/")
-async def get():
-    return home()
-
+# Modify the existing post function
 @rt("/generate", methods=["post"])
 async def post(repo_url: str, regenerate: bool = False):
     logging.info(f"Generating devcontainer.json for: {repo_url}")
@@ -116,6 +36,10 @@ async def post(repo_url: str, regenerate: bool = False):
         logging.info(f"Fetched repo context. Existing devcontainer: {'Yes' if existing_devcontainer else 'No'}")
         logging.info(f"Devcontainer URL: {devcontainer_url}")
 
+        # Detect relevant ports in the repository using the new helper function
+        ports = find_ports_in_files(repo_url)  # Updated function call
+        logging.info(f"Detected ports for forwarding: {ports}")
+
         if exists and not regenerate:
             logging.info(f"URL already exists in database. Returning existing devcontainer_json for: {repo_url}")
             devcontainer_json = existing_record['devcontainer_json']
@@ -123,10 +47,10 @@ async def post(repo_url: str, regenerate: bool = False):
             source = "database"
             url = existing_record['devcontainer_url']
         else:
-            devcontainer_json, url = generate_devcontainer_json(instructor_client, repo_url, repo_context, devcontainer_url, regenerate=regenerate)
+            # Generate devcontainer.json with the detected ports
+            devcontainer_json, url = generate_devcontainer_json_with_ports(repo_url, ports)  # Updated function call
             generated = True
             source = "generated" if url is None else "repository"
-
 
         if not exists or regenerate:
             logging.info("Saving to database...")
@@ -151,7 +75,7 @@ async def post(repo_url: str, regenerate: bool = False):
                     model=os.getenv("MODEL"),
                     embedding=embedding_json,
                     generated=generated,
-                    created_at=datetime.utcnow().isoformat()  # Ensure this is a string
+                    created_at=datetime.utcnow().isoformat()
                 )
 
                 # Convert the Pydantic model to a dictionary and handle datetime serialization
@@ -190,21 +114,3 @@ async def post(repo_url: str, regenerate: bool = False):
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}", exc_info=True)
         return Div(H2("Error"), P(f"An error occurred: {str(e)}"))
-
-@rt("/manifesto")
-async def get():
-    return manifesto_page()
-
-# Serve static files
-@rt("/{fname:path}.{ext:static}")
-async def get(fname:str, ext:str):
-    return FileResponse(f'{fname}.{ext}')
-
-# Initialize clients
-if check_env_vars():
-    openai_client = setup_azure_openai()
-    instructor_client = setup_instructor(openai_client)
-
-if __name__ == "__main__":
-    logging.info("Starting FastHTML app...")
-    serve()
