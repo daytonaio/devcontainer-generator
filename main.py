@@ -1,14 +1,15 @@
 import logging
 import os
 import json
+import re  # Import regex for pattern matching
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path  # For file traversal
 from dotenv import load_dotenv
 from supabase_client import supabase
 from fasthtml.common import *
 from helpers.openai_helpers import setup_azure_openai, setup_instructor
 from helpers.github_helpers import fetch_repo_context, check_url_exists
-from helpers.devcontainer_helpers import generate_devcontainer_json_with_ports, find_ports_in_files  # Updated imports
+from helpers.devcontainer_helpers import generate_devcontainer_json_with_ports, validate_devcontainer_json
 from helpers.token_helpers import count_tokens, truncate_to_token_limit
 from models import DevContainer
 from schemas import DevContainerModel
@@ -19,6 +20,32 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %
 
 # Load environment variables
 load_dotenv()
+
+# New function to detect ports in common files
+def find_ports_in_files(repo_path):
+    ports = set()  # Use a set to avoid duplicates
+    
+    # Common port patterns in various files
+    port_patterns = [
+        re.compile(r"EXPOSE (\d+)"),  # Matches EXPOSE in Dockerfile
+        re.compile(r"PORT=(\d+)"),    # Matches PORT in .env
+        re.compile(r"ports:\s*-\s*(\d+):"),  # Matches ports in docker-compose.yml
+        re.compile(r"\b\d{4}\b")  # Matches common port numbers in documentation
+    ]
+    
+    # Paths to scan for ports
+    files_to_check = ["Dockerfile", ".env", "docker-compose.yml", "README.md", "contributing.md"]
+
+    for file_name in files_to_check:
+        file_path = Path(repo_path) / file_name
+        if file_path.exists():
+            with open(file_path, "r") as file:
+                content = file.read()
+                for pattern in port_patterns:
+                    matches = pattern.findall(content)
+                    ports.update(matches)
+                    
+    return list(map(int, ports)) if ports else [8000]  # Default to port 8000 if none found
 
 # Modify the existing post function
 @rt("/generate", methods=["post"])
@@ -36,8 +63,8 @@ async def post(repo_url: str, regenerate: bool = False):
         logging.info(f"Fetched repo context. Existing devcontainer: {'Yes' if existing_devcontainer else 'No'}")
         logging.info(f"Devcontainer URL: {devcontainer_url}")
 
-        # Detect relevant ports in the repository using the new helper function
-        ports = find_ports_in_files(repo_url)  # Updated function call
+        # Detect relevant ports in the repository
+        ports = find_ports_in_files(repo_url)  # Call the new find_ports_in_files function
         logging.info(f"Detected ports for forwarding: {ports}")
 
         if exists and not regenerate:
@@ -47,8 +74,8 @@ async def post(repo_url: str, regenerate: bool = False):
             source = "database"
             url = existing_record['devcontainer_url']
         else:
-            # Generate devcontainer.json with the detected ports
-            devcontainer_json, url = generate_devcontainer_json_with_ports(repo_url, ports)  # Updated function call
+            # Pass detected ports to generate_devcontainer_json_with_ports
+            devcontainer_json, url = generate_devcontainer_json_with_ports(instructor_client, repo_url, repo_context, devcontainer_url, ports=ports, regenerate=regenerate)
             generated = True
             source = "generated" if url is None else "repository"
 
