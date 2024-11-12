@@ -162,13 +162,53 @@ def validate_devcontainer_json(devcontainer_json):
 
 
 def validate_docker_compose_yml(docker_compose_yml):
+    """
+    Validates the docker-compose.yml content.
+    Returns True if valid, False otherwise.
+    """
     logging.info("Validating docker-compose.yml...")
     try:
-        yaml.safe_load(docker_compose_yml)
-        logging.info("Docker Compose YAML validation successful.")
+        # Parse the YAML to check for syntax errors
+        parsed_yaml = yaml.safe_load(docker_compose_yml)
+        
+        # Basic structure validation
+        if not isinstance(parsed_yaml, dict):
+            logging.error("Docker Compose file must be a dictionary")
+            return False
+            
+        # Check for required version field
+        if 'version' not in parsed_yaml:
+            logging.error("Docker Compose file must specify a version")
+            return False
+            
+        # Check for services section
+        if 'services' not in parsed_yaml:
+            logging.error("Docker Compose file must have a services section")
+            return False
+            
+        if not isinstance(parsed_yaml['services'], dict):
+            logging.error("Services section must be a dictionary")
+            return False
+            
+        # Validate each service
+        for service_name, service in parsed_yaml['services'].items():
+            if not isinstance(service, dict):
+                logging.error(f"Service {service_name} configuration must be a dictionary")
+                return False
+                
+            # Check for at least one of image or build
+            if 'image' not in service and 'build' not in service:
+                logging.error(f"Service {service_name} must specify either image or build")
+                return False
+
+        logging.info("Docker Compose YAML validation successful")
         return True
+        
     except yaml.YAMLError as e:
         logging.error(f"Docker Compose YAML validation failed: {e}")
+        return False
+    except Exception as e:
+        logging.error(f"Unexpected error during Docker Compose validation: {e}")
         return False
 
 

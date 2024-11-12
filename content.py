@@ -19,13 +19,17 @@ def generator_section():
     return Section(
         Form(
             Group(
-                Input(type="text", name="repo_url", placeholder="Paste your Github repo URL, or select a repo to get started", cls="form-input", list="repo-list"),
+                Input(type="text", 
+                      name="repo_url", 
+                      placeholder="Paste your Github repo URL, or select a repo to get started", 
+                      cls="form-input",
+                      list="repo-list"),
                 Datalist(
-                    Option(value="https://github.com/devcontainers/templates"),
-                    Option(value="https://github.com/JetBrains/devcontainers-examples"),
-                    Option(value="https://github.com/devcontainers/cli"),
-                    id="repo-list"
-                ),
+                Option(value="https://github.com/devcontainers/templates"),
+                Option(value="https://github.com/JetBrains/devcontainers-examples"),
+                Option(value="https://github.com/devcontainers/cli"),
+                id="repo-list"
+            ),
                 Button(
                     Div(
                         Img(src="assets/icons/magic-wand.svg", cls="svg-icon"),
@@ -38,7 +42,17 @@ def generator_section():
                     hx_post="/generate",
                     hx_target="#result",
                     hx_indicator="#generate-button"
-                )
+                ),
+                cls="input-group"
+            ),
+            Group(
+                Label(
+                    Input(type="checkbox", 
+                          name="with_docker_compose", 
+                          role="switch"),
+                    "With Docker Compose"
+                ),
+                cls="toggle-group"
             ),
             Div(id="url-error", cls="error-message"),
             id="generate-form",

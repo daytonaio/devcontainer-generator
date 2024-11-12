@@ -30,6 +30,7 @@ def check_env_vars():
         "SUPABASE_URL",
         "SUPABASE_KEY",
     ]
+    # print("ENVs: ", os.environ)
     missing_vars = [var for var in required_vars if not os.environ.get(var)]
     if missing_vars:
         print(f"Missing environment variables: {', '.join(missing_vars)}. Please configure the env vars file properly.")
@@ -102,8 +103,9 @@ async def get():
     return home()
 
 @rt("/generate", methods=["post"])
-async def post(repo_url: str, regenerate: bool = False):
+async def post(repo_url: str, regenerate: bool = False, with_docker_compose: bool = False):
     logging.info(f"Generating devcontainer.json and docker-compose.yml for: {repo_url}")
+    logging.info(f"Docker Compose requested: {with_docker_compose}")
 
     # Normalize the repo_url by stripping trailing slashes
     repo_url = repo_url.rstrip('/')
@@ -177,7 +179,7 @@ async def post(repo_url: str, regenerate: bool = False):
                     Button(
                         Img(cls="w-4 h-4", src="assets/icons/regenerate.svg", alt="Regenerate"),
                         cls="icon-button regenerate-button",
-                        hx_post=f"/generate?regenerate=true&repo_url={repo_url}",
+                        hx_post=f"/generate?regenerate=true&repo_url={repo_url}&with_docker_compose={with_docker_compose}",
                         hx_target="#result",
                         hx_indicator="#action-text",
                         title="Regenerate",
@@ -199,7 +201,7 @@ async def post(repo_url: str, regenerate: bool = False):
                     cls="button-group"
                 ),
                 cls="code-container relative"
-            ) if docker_compose_yml else None
+            ) if docker_compose_yml and with_docker_compose else None
         )
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}", exc_info=True)
