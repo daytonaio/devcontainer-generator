@@ -205,7 +205,11 @@ async def post(repo_url: str, regenerate: bool = False, with_docker_compose: boo
         )
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}", exc_info=True)
-        return Div(H2("Error"), P(f"An error occurred: {str(e)}"))
+        return Article(
+            H2("Error", role="alert"),  # Pico CSS alert role
+            P(f"An error occurred: {str(e)}"),
+            cls="error"  # Pico CSS error class
+        )
 
 @rt("/manifesto")
 async def get():
