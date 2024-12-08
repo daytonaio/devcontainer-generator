@@ -30,270 +30,175 @@
 }
 
 body {
-    padding: 20px;
+    @apply p-5;
     font-family: Geist, sans-serif;
 }
 
 .container {
-    max-width: 800px;
-    margin: 0 auto;
+    @apply max-w-[800px] mx-auto my-0;
 }
 
 pre {
-    background-color: #f4f4f4;
-    padding: 15px;
-    border-radius: 5px;
-    position: relative;
+    @apply bg-[#f4f4f4] relative p-[15px] rounded-[5px];
 }
 
 .code-container {
-    position: relative;
-    overflow: visible;
+    @apply relative overflow-visible;
 }
 
 .button-group {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    display: flex;
-    gap: 0.25rem;
+    @apply absolute flex gap-1 right-2 top-2;
 }
 
 .icon-button {
-    background-color: rgba(73, 73, 73, 0.5);
-    border: none;
-    border-radius: 0.25rem;
-    padding: 0.25rem;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-    width: 1.75rem;
-    height: 1.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.icon-button:hover {
-    background-color: rgba(73, 73, 73, 0.25);
+    @apply bg-[rgba(73, 73, 73, 0.5)] rounded cursor-pointer transition-[background-color] duration-[0.3s] ease-[ease] w-7 h-7 flex items-center justify-center p-1 border-[none] hover:bg-[rgba(73, 73, 73, 0.25)];
 }
 
 .action-text {
-    position: absolute;
-    height: 1.75rem;
-    top: 0rem;
-    right: 3.75rem;
-    background-color: #2196F3;
-    color: rgb(50, 50, 50);
-    padding: 0.5rem 0.25rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
-    opacity: 0;
-    transition: opacity 0.3s ease-in-out;
+    @apply absolute h-7 bg-[#2196F3] text-[rgb(50, 50, 50)] rounded text-xs opacity-0 transition-opacity duration-[0.3s] ease-[ease-in-out] px-1 py-2 right-[3.75rem] top-0;
 }
 
 #regenerating-indicator {
-    display: none;
-    position: absolute;
-    top: 0.5rem;
-    right: 3.75rem;
-    background-color: #2196F3;
-    color: rgb(69, 69, 69);
-    padding: 0.125rem 0.25rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
+    @apply hidden absolute bg-[#2196F3] text-[rgb(69, 69, 69)] rounded text-xs px-1 py-0.5 right-[3.75rem] top-2;
 }
 
 .htmx-request .regenerate-button {
-    opacity: 0.5;
-    cursor: not-allowed;
+    @apply opacity-50 cursor-not-allowed;
 }
 
 .htmx-request #regenerating-indicator {
-    display: flex;
+    @apply flex;
 }
 
 .error-message {
-    color: red;
-    margin-top: 5px;
-    font-size: 0.9em;
+    @apply text-[red] text-[0.9em] mt-[5px];
 }
 
 .button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    @apply inline-flex items-center justify-center;
 }
 
 .icon-container {
-    position: relative;
-    width: 24px;
-    height: 24px;
-    margin-right: 8px;
+    @apply relative w-6 h-6 mr-2;
 }
 
 .svg-icon,
 .htmx-indicator {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    transition: opacity 0.3s ease-in-out;
+    @apply absolute w-full h-full transition-opacity duration-[0.3s] ease-[ease-in-out] left-0 top-0;
 }
 
 .htmx-indicator {
-    opacity: 0;
+    @apply opacity-0;
 }
 
 .button.htmx-request .svg-icon {
-    opacity: 0;
+    @apply opacity-0;
 }
 
 .button.htmx-request .htmx-indicator {
-    opacity: 1;
+    @apply opacity-100;
 }
 
 /* Debug styles */
 .debug-indicator {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    padding: 5px;
-    background-color: #ff0;
-    color: #000;
-    font-weight: bold;
-    z-index: 9999;
+    @apply fixed bg-[#ff0] text-black font-[bold] z-[9999] p-[5px] right-2.5 top-2.5;
 }
 
 /* Typography */
-
 .font-details-off {
     font-feature-settings: "clig" off, "liga" off;
 }
 
 H1 {
+    @apply text-[2.5rem] not-italic font-medium leading-[64px] tracking-[-0.84px];
     font-family: Geist;
-    font-size: 2.5rem;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 64px;
+
     /* 114.286% */
-    letter-spacing: -0.84px;
 }
 
 H2 {
-    font-size: 2.5rem;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 3rem;
+    @apply text-[2.5rem] not-italic font-medium leading-[3rem] tracking-[-0.0375rem];
+
     /* 120% */
-    letter-spacing: -0.0375rem;
 }
 
 .xs-mono-body {
+    @apply text-sm not-italic font-medium leading-[180%] text-sm not-italic font-medium leading-[180%];
     font-family: "Geist Mono", monospace;
-    font-size: 0.875rem;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 180%;
+
     /* 1.575rem */
 }
 
 .mono-body {
+    @apply text-base not-italic font-medium leading-[180%];
     font-family: "Geist Mono", monospace;
-    font-size: 1rem;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 180%;
+
     /* 1.8rem */
 }
 
 .mono-s {
+    @apply text-base not-italic font-medium leading-[180%];
     font-family: "Geist Mono", monospace;
-    font-size: 16px;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 180%;
+
     /* 28.8px */
 }
 
 .xs-mono-body {
     font-family: "Geist Mono";
-    font-size: 0.875rem;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 180%;
+
     /* 1.575rem */
 }
 
 .regular-body,
 .s-body {
-    font-size: 1rem;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 1.5rem;
+    @apply text-base not-italic font-normal leading-6 tracking-[-0.005rem];
+
     /* 150% */
-    letter-spacing: -0.005rem;
 }
 
 .m-body {
+    @apply text-xl not-italic font-normal leading-7 tracking-[-0.0125rem];
     font-family: "Geist", sans-serif;
-    font-size: 1.25rem;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 1.75rem;
+
     /* 140% */
-    letter-spacing: -0.0125rem;
 }
 
 .l-body {
-    font-size: 1.5rem;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 2rem;
+    @apply text-2xl not-italic font-normal leading-8 tracking-[-0.015rem];
+
     /* 133.333% */
-    letter-spacing: -0.015rem;
 }
 
 .heading-3 {
-    font-size: 1.5rem;
-    font-style: normal;
-    font-weight: 500;
-    line-height: 2rem;
+    @apply text-2xl not-italic font-medium leading-8 tracking-[-0.015rem];
+
     /* 133.333% */
-    letter-spacing: -0.015rem;
 }
 
 /* scroll */
 .hide-scrollbar::-webkit-scrollbar {
-    display: none;
+    @apply hidden;
 }
 
 .hide-scrollbar {
     -ms-overflow-style: none;
+
     /* IE and Edge */
     scrollbar-width: none;
+
     /* Firefox */
 }
 
 .cta-button {
-    display: inline-block;
-    background-color: #0366d6;  /* GitHub blue color */
-    color: white;
-    padding: 10px 20px;
-    border-radius: 6px;
-    text-decoration: none;
-    font-weight: bold;
+    @apply inline-block bg-[#0366d6] text-[white] no-underline font-[bold] px-5 py-2.5 rounded-md;
+
+    /* GitHub blue color */
 }
 
 .button-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    @apply flex items-center justify-center;
 }
 
 .github-icon {
-    width: 24px;
-    height: 24px;
-    margin-right: 10px;
+    @apply w-6 h-6 mr-2.5;
 }
