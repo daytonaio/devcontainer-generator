@@ -297,3 +297,22 @@ H2 {
     height: 24px;
     margin-right: 10px;
 }
+
+.error {
+    background-color: #f0f0f0;
+    color: red;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    margin: 10px 0;
+}
+
+.error h2 {
+    color: red;
+    margin-bottom: 10px;
+}
+
+.error p {
+    color: red;
+    margin: 0;
+}

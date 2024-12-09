@@ -1,0 +1,86 @@
+Given the following context from a GitHub repository:
+
+{{ repo_context }}
+
+{% if existing_devcontainer %}
+An existing devcontainer.json file was found in the repository:
+
+{{ existing_devcontainer }}
+
+Please use this as a reference and improve upon it, incorporating any new requirements or best practices.
+{% endif %}
+
+{% if existing_docker_compose %}
+An existing docker-compose.yml file was found in the repository:
+
+{{ existing_docker_compose }}
+
+Please use this as a reference and improve upon it, incorporating any new requirements or best practices.
+{% endif %}
+
+Begin by applying Chain of Thought (CoT) reasoning to decompose the context and task into logical, manageable components. Think slowly and pay attention to all important facts in the context such as the ports used by the application and the ports used for testing.
+
+Generate both a devcontainer.json file and a docker-compose.yml file for this project. The files should include appropriate settings for the development environment based on the project's requirements and structure.
+
+For the devcontainer.json:
+- The 'features' field is essential and should include a dictionary of features to enable within the container.
+- Include comments to explain what each line or block of code does.
+
+For the docker-compose.yml:
+- Define the necessary services, volumes, and networks.
+- Use appropriate images or build contexts for each service.
+- Set up the correct port mappings and environment variables.
+- Define dependencies between services if needed.
+
+Here's an example of a devcontainer.json with Docker Compose integration:
+
+```json
+{
+    "name": "Project Dev Container",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "app",
+    "workspaceFolder": "/workspace",
+    "features": {
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    },
+    "forwardPorts": [3000, 5432],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-azuretools.vscode-docker",
+                "ms-python.python"
+            ]
+        }
+    },
+    "postCreateCommand": "pip install -r requirements.txt"
+}
+```
+
+And here's an example of a corresponding docker-compose.yml:
+
+```yaml
+version: '3.8'
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+    command: sleep infinity
+    network_mode: service:db
+  db:
+    image: postgres:latest
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_DB: myapp
+
+volumes:
+  postgres-data:
+```
+
+Your goal is to deliver the most logical, secure, efficient, and well-documented devcontainer.json and docker-compose.yml files for the given project.
