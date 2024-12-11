@@ -46,7 +46,7 @@ To run this project in Daytona, you'll need to have Daytona installed. Follow th
 
 2. **Create new project and run IDE**:
     ```bash
-    daytona create https://github.com/nkkko/devcontainer-generator --code
+    daytona create https://github.com/daytonaio/devcontainer-generator.git
     ```
 
 3. **Set up environment variables**:
