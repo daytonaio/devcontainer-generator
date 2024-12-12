@@ -59,6 +59,7 @@ To run this project in Daytona, you'll need to have Daytona installed. Follow th
     GITHUB_TOKEN=your_github_token
     SUPABASE_URL=your_supabase_url
     SUPABASE_KEY=your_supabase_api_key
+    SUPABASE_DB_URL=your_supabase_db_url
     ```
 
 ## Configuration
@@ -73,32 +74,17 @@ AZURE_OPENAI_API_KEY=your_azure_openai_api_key
 AZURE_OPENAI_API_VERSION=your_azure_openai_api_version
 MODEL=your_model_name
 GITHUB_TOKEN=your_github_token
+
 ```
 
 ### Supabase Database Setup
-The project uses a Supabase database to store the generated devcontainer.json files and their embeddings. Ensure you have set up a Supabase project and added the following environment variables to your .env file.
 
-To set up the Supabase database and create the necessary tables, follow these steps:
+Run the `migrate.py` script to create the `devcontainers` table in Supabase. Here's how you can do it:
 
-1. Log in to your Supabase project dashboard.
-2. Navigate to the SQL Editor.
-3. Run the following SQL command to create the `devcontainers` table:
-
+```bash
+python migrate.py
 ```
-CREATE TABLE public.devcontainers (
-    id SERIAL PRIMARY KEY,
-    url TEXT NOT NULL,
-    devcontainer_json TEXT NOT NULL,
-    devcontainer_url TEXT,
-    repo_context TEXT NOT NULL,
-    tokens INT NOT NULL,
-    model TEXT NOT NULL,
-    embedding TEXT,
-    generated BOOLEAN NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
-);
 
-```
 After creating the table, you can use the Supabase client in your Python code to interact with the database.
 
 ### JSON Schema
@@ -119,6 +105,7 @@ python main.py
 2. Enter the URL of the GitHub repository for which you want to generate a `devcontainer.json` file.
 3. Click the "Generate devcontainer.json" button.
 4. The generated `devcontainer.json` will be displayed and can be copied to your clipboard.
+
 ## Setting Up Daytona Workspace
 
 **Steps to Set Up Daytona Workspace**
