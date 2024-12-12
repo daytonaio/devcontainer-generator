@@ -29,6 +29,13 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         console.log('Generate button not found');
     }
+
+    const dockerComposeToggle = document.querySelector('input[name="with_docker_compose"]');
+    if (dockerComposeToggle) {
+        dockerComposeToggle.addEventListener('change', function() {
+            console.log('Docker Compose toggle:', this.checked);
+        });
+    }
 });
 
 // Remove the initializeButtons function and related code since we're not using it anymore
