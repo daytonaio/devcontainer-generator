@@ -1,3 +1,5 @@
+[![Open in Codeanywhere](https://codeanywhere.com/img/open-in-codeanywhere-btn.svg)](https://app.codeanywhere.com/#https://github.com/daytonaio/devcontainer-generator)
+
 # DevContainer Generator
 
 Welcome to the **devcontainer-generator** project! This tool helps you automatically generate `devcontainer.json` files for your development environments based on the structure and contents of a given GitHub repository.
@@ -6,8 +8,8 @@ Welcome to the **devcontainer-generator** project! This tool helps you automatic
 
 1. [Project Structure](#project-structure)
 2. [Installation](#installation)
-3. [Usage](#usage)
-4. [Configuration](#configuration)
+3. [Configuration](#configuration)
+4. [Usage](#usage)
 5. [Setting Up Daytona Workspace](#setting-up-daytona-workspace)
 6. [Contributing](#contributing)
 7. [License](#license)
@@ -44,7 +46,7 @@ To run this project in Daytona, you'll need to have Daytona installed. Follow th
 
 2. **Create new project and run IDE**:
     ```bash
-    daytona create https://github.com/nkkko/devcontainer-generator --code
+    daytona create https://github.com/daytonaio/devcontainer-generator.git
     ```
 
 3. **Set up environment variables**:
@@ -55,7 +57,39 @@ To run this project in Daytona, you'll need to have Daytona installed. Follow th
     AZURE_OPENAI_API_VERSION=your_azure_openai_api_version
     MODEL=your_model_name
     GITHUB_TOKEN=your_github_token
+    SUPABASE_URL=your_supabase_url
+    SUPABASE_KEY=your_supabase_api_key
+    SUPABASE_DB_URL=your_supabase_db_url
     ```
+
+## Configuration
+
+### Azure OpenAI and Instructor Clients
+
+Ensure the following environment variables are set in your `.env` file:
+
+```dotenv
+AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint
+AZURE_OPENAI_API_KEY=your_azure_openai_api_key
+AZURE_OPENAI_API_VERSION=your_azure_openai_api_version
+MODEL=your_model_name
+GITHUB_TOKEN=your_github_token
+
+```
+
+### Supabase Database Setup
+
+Run the `migrate.py` script to create the `devcontainers` table in Supabase. Here's how you can do it:
+
+```bash
+python migrate.py
+```
+
+After creating the table, you can use the Supabase client in your Python code to interact with the database.
+
+### JSON Schema
+
+The JSON schema for the `devcontainer.json` file is located in `schemas/devContainer.base.schema.json`.
 
 ## Usage
 
@@ -71,28 +105,6 @@ python main.py
 2. Enter the URL of the GitHub repository for which you want to generate a `devcontainer.json` file.
 3. Click the "Generate devcontainer.json" button.
 4. The generated `devcontainer.json` will be displayed and can be copied to your clipboard.
-
-## Configuration
-
-### Azure OpenAI and Instructor Clients
-
-Ensure the following environment variables are set in your `.env` file:
-
-```dotenv
-AZURE_OPENAI_ENDPOINT=your_azure_openai_endpoint
-AZURE_OPENAI_API_KEY=your_azure_openai_api_key
-AZURE_OPENAI_API_VERSION=your_azure_openai_api_version
-MODEL=your_model_name
-GITHUB_TOKEN=your_github_token
-```
-
-### SQLite Database
-
-The project uses an SQLite database to store the generated `devcontainer.json` files and their embeddings. The database is located in the `data` directory.
-
-### JSON Schema
-
-The JSON schema for the `devcontainer.json` file is located in `schemas/devContainer.base.schema.json`.
 
 ## Setting Up Daytona Workspace
 
