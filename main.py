@@ -22,17 +22,20 @@ load_dotenv()
 
 def check_env_vars():
     required_vars = [
-        "AZURE_OPENAI_ENDPOINT",
-        "AZURE_OPENAI_API_KEY",
-        "AZURE_OPENAI_API_VERSION",
+        "LLM_PROVIDER",
         "MODEL",
         "GITHUB_TOKEN",
         "SUPABASE_URL",
         "SUPABASE_KEY",
     ]
 
-    # Add provider-specific checks
+    # Check if required environment variables are set
     provider = os.getenv("LLM_PROVIDER", "")
+    if not provider:
+        print("Error: LLM_PROVIDER is not specified. Please set LLM_PROVIDER in your environment variables.")
+        return False
+    
+    # Add provider-specific checks
     if provider == "AzureOpenAI":
         required_vars.extend(["AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_API_VERSION"])
     elif provider == "OpenAI":
@@ -43,6 +46,9 @@ def check_env_vars():
         required_vars.append("GOOGLE_API_KEY")
     elif provider == "Groq":
         required_vars.append("GROQ_API_KEY")
+    else:
+        print(f"Error: Unsupported LLM_PROVIDER '{provider}'. Supported providers are: AzureOpenAI, OpenAI, Anthropic, Google, Groq.")
+        return False
 
     missing_vars = [var for var in required_vars if not os.environ.get(var)]
     if missing_vars:
