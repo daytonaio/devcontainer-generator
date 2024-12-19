@@ -22,19 +22,61 @@ load_dotenv()
 
 def check_env_vars():
     required_vars = [
-        "AZURE_OPENAI_ENDPOINT",
-        "AZURE_OPENAI_API_KEY",
-        "AZURE_OPENAI_API_VERSION",
+        "LLM_PROVIDER",
         "MODEL",
         "GITHUB_TOKEN",
         "SUPABASE_URL",
         "SUPABASE_KEY",
     ]
+
+    # Check if required environment variables are set
+    provider = os.getenv("LLM_PROVIDER", "")
+    if not provider:
+        print("Error: LLM_PROVIDER is not specified. Please set LLM_PROVIDER in your environment variables.")
+        return False
+    
+    # Add provider-specific checks
+    if provider == "AzureOpenAI":
+        required_vars.extend(["AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_API_VERSION"])
+    elif provider == "OpenAI":
+        required_vars.append("OPENAI_API_KEY")
+    elif provider == "Anthropic":
+        required_vars.append("ANTHROPIC_API_KEY")
+    elif provider == "Google":
+        required_vars.append("GOOGLE_API_KEY")
+    elif provider == "Groq":
+        required_vars.append("GROQ_API_KEY")
+    else:
+        print(f"Error: Unsupported LLM_PROVIDER '{provider}'. Supported providers are: AzureOpenAI, OpenAI, Anthropic, Google, Groq.")
+        return False
+
     missing_vars = [var for var in required_vars if not os.environ.get(var)]
     if missing_vars:
         print(f"Missing environment variables: {', '.join(missing_vars)}. Please configure the env vars file properly.")
         return False
     return True
+
+def initialize_llm_client():
+    provider = os.getenv("LLM_PROVIDER", "AzureOpenAI")  # Default to AzureOpenAI
+    
+    if provider == "AzureOpenAI":
+        from helpers.openai_helpers import setup_azure_openai
+        return setup_azure_openai()
+    elif provider == "OpenAI":
+        from openai import OpenAI
+        return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    elif provider == "Anthropic":
+        from anthropic import Anthropic
+        return Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    elif provider == "Google":
+        from google.generativeai import GoogleAI
+        return GoogleAI(api_key=os.getenv("GOOGLE_API_KEY"))
+    elif provider == "Groq":
+        from groq.client import GroqClient
+        return GroqClient(api_key=os.getenv("GROQ_API_KEY"))
+    else:
+        raise ValueError(f"Unsupported LLM provider: {provider}")
+
 
 hdrs = [
     Script(src="https://www.googletagmanager.com/gtag/js?id=G-Q22LCTCW8Y", aync=True),
@@ -202,7 +244,8 @@ async def get(fname:str, ext:str):
 
 # Initialize clients
 if check_env_vars():
-    openai_client = setup_azure_openai()
+    logging.info("Initializing LLM client...")
+    openai_client = initialize_llm_client()
     instructor_client = setup_instructor(openai_client)
 
 if __name__ == "__main__":
