@@ -165,6 +165,7 @@ async def post(repo_url: str, regenerate: bool = False):
 
         return Div(
             Article(f"Devcontainer.json {'found in ' + source if source in ['database', 'repository'] else 'generated'}"),
+            caution_section(),
             Pre(
                 Code(devcontainer_json, id="devcontainer-code", cls="overflow-auto"),
                 Div(
@@ -189,7 +190,7 @@ async def post(repo_url: str, regenerate: bool = False):
         )
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}", exc_info=True)
-        return Div(H2("Error"), P(f"An error occurred: {str(e)}"))
+        return Div(caution_section(), H2("Error"), P(f"An error occurred: {str(e)}"))
 
 @rt("/manifesto")
 async def get():
