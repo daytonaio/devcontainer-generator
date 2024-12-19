@@ -8,7 +8,7 @@ def caution_section():
         H3(
             "⚠️ Caution: AI Generated Code",
             cls="text-2xl font-bold text-center mb-4",
-            style="padding-left: 20px; padding-top: 10px;"
+            style="padding-left: 20px; padding-top: 10px; padding-bottom: 10px;"
         ),
         Ul(
             Li("Make sure to review the generated devcontainer.json file before running it in your development environment."),
