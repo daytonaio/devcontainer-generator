@@ -190,7 +190,7 @@ async def post(repo_url: str, regenerate: bool = False):
         )
     except Exception as e:
         logging.error(f"An error occurred: {str(e)}", exc_info=True)
-        return Div(caution_section(), H2("Error"), P(f"An error occurred: {str(e)}"))
+        return Div(H2("Error"), P(f"An error occurred: {str(e)}"))
 
 @rt("/manifesto")
 async def get():
