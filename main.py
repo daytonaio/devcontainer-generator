@@ -165,6 +165,7 @@ async def post(repo_url: str, regenerate: bool = False):
 
         return Div(
             Article(f"Devcontainer.json {'found in ' + source if source in ['database', 'repository'] else 'generated'}"),
+            caution_section(),
             Pre(
                 Code(devcontainer_json, id="devcontainer-code", cls="overflow-auto"),
                 Div(

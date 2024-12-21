@@ -3,6 +3,22 @@ from fasthtml.common import *
 description = 'Generate Custom Dev Containers in Seconds with AI'
 _blank = dict(target="_blank", rel="noopener noreferrer")
 
+def caution_section():
+    return Div(
+        H3(
+            "⚠️ Caution: AI Generated Code",
+            cls="text-2xl font-bold text-center mb-4",
+            style="padding-left: 20px; padding-top: 10px; padding-bottom: 10px;"
+        ),
+        Ul(
+            Li("Make sure to review the generated devcontainer.json file before running it in your development environment."),
+            Li("The best way to run AI generated code is inside sandboxed dev environments like those managed by Daytona."),
+            cls="list-disc list-inside text-lg text-center mt-4"
+        ),
+        cls="container mx-auto px-4 py-16 bg-yellow-100",
+        style="background-color: #ffff66; padding-bottom: 5px; border-radius: 5px; margin-top: 10px; margin-bottom: 10px;"
+    )
+
 def hero_section():
     return Section(
         Div(
