@@ -16,7 +16,7 @@ def caution_section():
             cls="list-disc list-inside text-lg text-center mt-4"
         ),
         cls="container mx-auto px-4 py-16 bg-yellow-100",
-        style="background-color: #ffff66; padding-bottom: 5px; border-radius: 10px;"
+        style="background-color: #ffff66; padding-bottom: 5px; border-radius: 5px; margin-top: 10px; margin-bottom: 10px;"
     )
 
 def hero_section():
